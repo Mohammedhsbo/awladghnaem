@@ -1,0 +1,18 @@
+packages:
+  - "apps/desktop"
+  - "packages/shared-types"
+
+onlyBuiltDependencies:
+  - "@parcel/watcher"
+  - electron
+  - electron-winstaller
+  - esbuild
+  - sharp
+
+allowBuilds:
+  "@parcel/watcher": true
+  "@scarf/scarf": false
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  sharp: true

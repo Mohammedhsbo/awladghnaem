@@ -1,0 +1,14 @@
+{
+  "name": "motorcycle-desktop-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "dev": "pnpm --filter desktop dev",
+    "build": "pnpm --filter desktop build",
+    "typecheck": "pnpm --filter desktop typecheck",
+    "lint": "pnpm --filter desktop lint",
+    "preview": "pnpm --filter desktop preview",
+    "package:win": "pnpm --filter desktop package:win"
+  }
+}
