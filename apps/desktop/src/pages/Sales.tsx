@@ -562,6 +562,11 @@ export default function Sales({ lang }: { lang: Lang }) {
           <p style={{ color: 'var(--text-2)', margin: 0 }}>
             {doneSale.customerName} — {isRtl ? doneSale.motorcycle?.brand?.nameAr : doneSale.motorcycle?.brand?.nameEn} {doneSale.motorcycle?.model}
           </p>
+          {doneSale.customerCode && (
+            <p style={{ color: 'var(--text-2)', margin: 0 }}>
+              {isRtl ? 'كود العميل' : 'Customer code'}: <strong style={{ fontFamily: 'monospace' }}>{doneSale.customerCode}</strong>
+            </p>
+          )}
           <p style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '1.2rem', margin: 0 }}>
             {money(Number(doneSale.salePrice))} — {doneSale.paymentMethod === 'CASH' ? (isRtl ? 'نقدي' : 'Cash') : 'Visa'}
           </p>

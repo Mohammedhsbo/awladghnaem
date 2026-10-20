@@ -78,6 +78,12 @@ export default function CustomerCard({ customer, lang, compact }: Props) {
             {customer.name}
           </div>
 
+          {customer.customerCode && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginBottom: '0.2rem' }}>
+              {lang === 'ar' ? 'كود العميل' : 'Customer code'}: <span style={{ fontFamily: 'monospace' }}>{customer.customerCode}</span>
+            </div>
+          )}
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-2)', marginBottom: '0.2rem' }}>
             <Phone size={12} style={{ flexShrink: 0 }} />
             <span style={{ fontFamily: 'monospace' }}>{customer.phone}</span>

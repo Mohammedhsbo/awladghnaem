@@ -138,6 +138,15 @@ export default function CustomerFormPOS({ lang, customer, onSuccess, onClose }: 
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {customer?.customerCode && (
+            <div style={{ padding: '0.75rem', border: '1px solid var(--pos-border)', borderRadius: 'var(--radius)' }}>
+              <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-2)' }}>
+                {isRtl ? 'كود العميل' : 'Customer code'}
+              </span>
+              <strong style={{ fontFamily: 'monospace' }}>{customer.customerCode}</strong>
+            </div>
+          )}
+
           {/* Duplicate warning (only for create) */}
           {!isEditMode && (
             <div

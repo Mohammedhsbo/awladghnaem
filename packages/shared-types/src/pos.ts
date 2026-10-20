@@ -53,6 +53,7 @@ export interface POSDashboardData {
 // ─────────────────────────────────────────────────────────
 export interface POSCustomerSearchResult {
   id: string;
+  customerCode?: string | null;
   name: string;
   phone: string;
   email?: string;
@@ -224,6 +225,7 @@ export interface ValidatePOSTransactionResponse {
   valid: boolean;
   customer: {
     id: string;
+    customerCode?: string | null;
     name: string;
     isActive: boolean;
   };
@@ -278,6 +280,7 @@ export interface CreatePOSTransactionResponse {
   number: string;
   customer: {
     id: string;
+    customerCode?: string | null;
     name: string;
     phone: string;
   };
@@ -315,6 +318,7 @@ export interface POSActiveReservation {
   reservationNumber: string;
   customer: {
     id: string;
+    customerCode?: string | null;
     name: string;
     phone: string;
   };

@@ -76,6 +76,7 @@ export default function POSMain({ lang, onBack }: POSMainProps) {
           onSuccess={(customer: CustomerDetail) => {
             const selected: CustomerSearchResult = {
               id: customer.id,
+              customerCode: customer.customerCode,
               name: customer.name,
               phone: customer.phone,
               email: customer.email ?? undefined,

@@ -311,6 +311,7 @@ export const purchases = {
 // ─── Customers API (POS) ─────────────────────────────────
 export interface CustomerSearchResult {
   id: string;
+  customerCode?: string | null;
   name: string;
   phone: string;
   email?: string;
@@ -328,6 +329,7 @@ export interface CustomerSearchResult {
 
 export interface CustomerDetail {
   id: string;
+  customerCode?: string | null;
   name: string;
   phone: string;
   email?: string;
@@ -382,7 +384,7 @@ export const customers = {
 export interface CustomerInquiry {
   id: string;
   customerId: string;
-  customer: { id: string; name: string; phone: string };
+  customer: { id: string; customerCode?: string | null; name: string; phone: string };
   address: string;
   phone: string;
   occupation: string;
@@ -567,7 +569,7 @@ export interface Order {
 export interface OrderListItem {
   id: string;
   orderNumber: string;
-  customer: { id: string; name: string; phone: string };
+  customer: { id: string; customerCode?: string | null; name: string; phone: string };
   branch: { id: string; nameEn: string; nameAr: string };
   status: OrderStatus;
   paymentType: DesktopOrderPaymentType;
@@ -582,6 +584,7 @@ export interface OrderDetail extends Order {
   customerIdImage?: string | null;
   customer: {
     id: string;
+    customerCode?: string | null;
     name: string;
     phone: string;
     email?: string;
@@ -637,7 +640,7 @@ export type ReservationSource = 'ecommerce' | 'pos';
 export interface ReservationListItem {
   id: string;
   reservationNumber: string;
-  customer: { id: string; name: string; phone: string };
+  customer: { id: string; customerCode?: string | null; name: string; phone: string };
   motorcycle: {
     id: string;
     vin: string;
@@ -661,6 +664,7 @@ export interface ReservationDetail extends Omit<ReservationListItem, 'customer'>
   customerIdImage?: string | null;
   customer: {
     id: string;
+    customerCode?: string | null;
     name: string;
     phone: string;
     email?: string;
@@ -1300,6 +1304,7 @@ export interface SaleRecord {
   motorcycle: MotorcycleSearchResult;
   customerName: string;
   customerPhone: string;
+  customerCode?: string | null;
   customerIdImage?: string;
   salePrice: number;
   paymentMethod: SalePaymentMethod;

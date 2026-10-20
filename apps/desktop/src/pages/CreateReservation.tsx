@@ -179,6 +179,7 @@ export default function CreateReservation({ lang }: Props) {
   const handleCustomerCreated = (customer: any) => {
     setSelectedCustomer({
       id: customer.id,
+      customerCode: customer.customerCode,
       name: customer.name,
       phone: customer.phone,
       email: customer.email,
