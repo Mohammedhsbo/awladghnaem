@@ -263,7 +263,7 @@ export default function CreateReservation({ lang }: Props) {
           >
             {createdReservation.reservationNumber}
           </div>
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={() => navigate(`/reservations/${createdReservation.id}`)}
               className="btn btn-primary"
@@ -307,7 +307,7 @@ export default function CreateReservation({ lang }: Props) {
         {step === 'customer' && (
           <div>
             <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem' }}>{t.step1}</h2>
-            <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setShowCustomerSearch(true)}
                 className="btn btn-primary"

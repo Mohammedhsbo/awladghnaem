@@ -121,7 +121,7 @@ export default function ReservationReview({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
             gap: '1.5rem',
             marginBottom: '2rem',
           }}
@@ -283,7 +283,7 @@ export default function ReservationReview({
         </div>
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button
             onClick={onCancel}
             disabled={isSubmitting}

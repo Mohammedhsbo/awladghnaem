@@ -135,7 +135,7 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
             <Edit3 size={18} /> {isRtl ? 'تعديل البيانات' : 'Edit Details'}
           </h2>
           <form onSubmit={e => { e.preventDefault(); edit.mutate(); }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
               {[
                 { label: isRtl ? 'اسم العميل' : 'Customer name', key: 'buyerName', value: form.buyerName },
                 { label: isRtl ? 'الهاتف' : 'Phone', key: 'buyerPhone', value: form.buyerPhone },
@@ -154,7 +154,7 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
                 </label>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button className="premium-action-btn solid" type="submit" disabled={edit.isPending}>
                 <Save size={16} /> {isRtl ? 'حفظ التعديل' : 'Save changes'}
               </button>
@@ -165,7 +165,7 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
       )}
 
       {/* Info Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
         <div className="premium-stat-card">
           <h3><User size={18} /> {isRtl ? 'بيانات العميل' : 'Customer Info'}</h3>
           <div style={{ display: 'grid', gap: '0.6rem' }}>
@@ -176,9 +176,9 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
               [isRtl ? 'العنوان' : 'Address', buyerAddress],
               [isRtl ? 'المهنة' : 'Occupation', buyerOccupation],
             ].map(([label, val]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.55rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem', padding: '0.55rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
                 <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{label}</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{val}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word', textAlign: isRtl ? 'left' : 'right' }}>{val}</span>
               </div>
             ))}
           </div>
@@ -194,9 +194,9 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
               [isRtl ? 'القسط الشهري' : 'Monthly installment', request.monthlyInstallment != null ? `${request.monthlyInstallment.toLocaleString()} EGP` : '-'],
               [isRtl ? 'مدة التقسيط' : 'Duration', request.duration?.months ? `${request.duration.months} ${isRtl ? 'شهر' : 'months'}` : '-'],
             ].map(([label, val]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.55rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem', padding: '0.55rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
                 <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{label}</span>
-                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{val}</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word', textAlign: isRtl ? 'left' : 'right' }}>{val}</span>
               </div>
             ))}
           </div>
@@ -207,7 +207,7 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
       {imageItems.some(([, img]) => img) && (
         <div className="premium-stat-card">
           <h3><FileImage size={18} /> {isRtl ? 'المستندات' : 'Documents'}</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.85rem' }}>
             {imageItems.map(([label, image]) => image && (
               <a key={label} href={image} target="_blank" rel="noreferrer"
                 style={{ display: 'block', textDecoration: 'none', borderRadius: '12px', overflow: 'hidden', border: '1px solid #bfdbfe', transition: 'all 0.2s ease' }}

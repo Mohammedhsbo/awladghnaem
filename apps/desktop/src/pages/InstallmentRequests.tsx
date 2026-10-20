@@ -121,21 +121,23 @@ export default function InstallmentRequests({ lang }: Props) {
       </div>
     </div>
     
-    <div className="premium-glass-panel mb-6" style={{ padding: '1rem 1.5rem', marginBottom: '1.5rem' }}>
-      <div className="flex items-center gap-3">
-        <Search size={18} style={{ color: 'var(--blue)' }} />
-        <input className="input-field" style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '0.95rem' }} placeholder={i18n.search} value={search} onChange={event => setSearch(event.target.value)} />
-        <select className="input-field" style={{ border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.4rem 0.8rem', background: '#eff6ff', color: 'var(--blue-dark)', outline: 'none' }} value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
+    <div className="premium-glass-panel mb-6" style={{ padding: '0.85rem 1.25rem', marginBottom: '1.25rem' }}>
+      <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 220px', minWidth: 160, background: '#fff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.4rem 0.75rem' }}>
+          <Search size={18} style={{ color: 'var(--blue)', flexShrink: 0 }} />
+          <input className="input-field" style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '0.9rem', width: '100%' }} placeholder={i18n.search} value={search} onChange={event => setSearch(event.target.value)} />
+        </div>
+        <select className="input-field" style={{ border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.45rem 0.8rem', background: '#eff6ff', color: 'var(--blue-dark)', outline: 'none', minHeight: 40 }} value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
           <option value="">{i18n.all}</option>
           <option value="pending">{i18n.pending}</option>
           <option value="approved">{i18n.approved}</option>
           <option value="rejected">{i18n.rejected}</option>
         </select>
-        <button onClick={() => query.refetch()} className="premium-action-btn outline" title="Refresh"><RefreshCw size={16} /></button>
+        <button onClick={() => query.refetch()} className="premium-action-btn outline" style={{ minHeight: 40, padding: '0.45rem 0.75rem' }} title="Refresh"><RefreshCw size={16} /></button>
       </div>
     </div>
     
-    <div className="table-container installment-requests-table" style={{ background: 'white', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 4px 20px rgba(15,23,42,0.03)' }}>
+    <div className="table-container installment-requests-table" style={{ background: 'white', borderRadius: '20px', padding: '1rem', boxShadow: '0 4px 20px rgba(15,23,42,0.03)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
       {query.isLoading ? <div className="center-content"><div className="spinner" /><span>{i18n.loading}</span></div> 
       : query.isError ? <div className="center-content" style={{ color: 'var(--error)' }}><span>{i18n.error}</span><button className="premium-action-btn outline mt-4" onClick={() => query.refetch()}>{i18n.retry}</button></div> 
       : rows.length === 0 ? <div className="center-content"><FileText size={40} style={{ opacity: 0.3, marginBottom: '0.75rem', color: 'var(--blue)' }} /><span>{i18n.noData}</span></div> 

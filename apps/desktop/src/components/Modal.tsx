@@ -15,8 +15,12 @@ export default function Modal({ title, onClose, children, isOpen = true, footer,
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-content" style={{ maxWidth: wide ? 720 : 500 }}>
+    <div
+      className="modal-overlay"
+      dir={lang === 'ar' ? 'rtl' : 'ltr'}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="modal-content" style={{ maxWidth: wide ? 720 : 500, width: '100%' }}>
         <div className="modal-header">
           <h2 style={{ margin: 0, fontSize: '1.125rem' }}>{title}</h2>
           <button
@@ -26,7 +30,8 @@ export default function Modal({ title, onClose, children, isOpen = true, footer,
             title={lang === 'ar' ? 'إغلاق النافذة' : 'Close dialog'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--text-muted)', padding: '0.25rem',
+              color: 'var(--text-muted)', minWidth: 38, minHeight: 38,
+              display: 'grid', placeItems: 'center',
               borderRadius: 'var(--radius-sm)', transition: 'var(--transition)',
             }}
           >

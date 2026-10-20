@@ -90,7 +90,7 @@ export default function LoginScreen({ onLogin, lang }: Props) {
           <button
             type="submit"
             className="btn btn-primary"
-            style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem' }}
+            style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem', minHeight: 46, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
             disabled={loading}
           >
             {loading ? <><Loader2 size={16} style={{ animation: 'spin 0.7s linear infinite' }} /> {t.loggingIn}</> : t.login}

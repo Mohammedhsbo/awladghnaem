@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { BrowserRouter, NavLink, Routes, Route, useLocation } from 'react-router-dom';
 import { MutationCache, QueryClient, QueryClientProvider, QueryCache, useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, BarChart3, Bike, Building2, CircleDollarSign, ClipboardList, Clock, FileImage, LogOut, Menu, Package, Plus, Printer, RefreshCw, Shield, ShoppingCart, Users, WalletCards, X } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, Bike, Building2, CircleDollarSign, ClipboardList, Clock, FileImage, LogOut, Menu, Package, Plus, Printer, Shield, ShoppingCart, Users, WalletCards, X } from 'lucide-react';
 import { auth, branches, desktopPermissions, getApiErrorMessage, getToken, getUser, setUser, clearToken, clearUser, pos, type BranchSummary, type DesktopUser } from './api';
 import { emitToast } from './components/Toast';
 import { useViewingBranch, ViewingBranchProvider } from './contexts/ViewingBranchContext';
@@ -24,7 +24,6 @@ import InstallmentDetail from './pages/InstallmentDetail';
 import Reports from './pages/Reports';
 import Suppliers from './pages/Suppliers';
 import PrinterSettings from './pages/PrinterSettings';
-import OfflineSync from './pages/OfflineSync';
 import TransactionHistory from './pages/TransactionHistory';
 import AccountManagement from './pages/AccountManagement';
 import MyAccount from './pages/MyAccount';
@@ -37,6 +36,7 @@ import PosInstallments from './pages/PosInstallments';
 import DesktopPermissionsPage from './pages/DesktopPermissions';
 import Attendance from './pages/Attendance';
 import Branches from './pages/Branches';
+import CurrentOrders from './pages/CurrentOrders';
 
 
 const qc = new QueryClient({
@@ -52,12 +52,12 @@ const navItems = [
   { path: '/sales', icon: ShoppingCart, en: 'Sales', ar: 'المبيعات', pageKey: 'sales' },
   { path: '/pos-installments', icon: WalletCards, en: 'POS Installments', ar: 'أقساط المبيعات', pageKey: 'pos-installments' },
   { path: '/reservations', icon: ClipboardList, en: 'Reservations', ar: 'الحجوزات', pageKey: 'reservations' },
-  { path: '/offline-sync', icon: RefreshCw, en: 'Offline sync', ar: 'المزامنة', pageKey: 'offline-sync' },
   { path: '/history', icon: ClipboardList, en: 'Transaction history', ar: 'سجل المعاملات', pageKey: 'history' },
   { path: '/inventory', icon: Bike, en: 'Inventory', ar: 'المخزون', pageKey: 'inventory' },
   { path: '/transfers', icon: ArrowRightLeft, en: 'Transfers', ar: 'التحويلات', pageKey: 'transfers' },
   { path: '/customers', icon: Users, en: 'Customers', ar: 'العملاء', pageKey: 'customers' },
   { path: '/inquiries', icon: FileImage, en: 'Inquiries', ar: 'استعلامات', pageKey: 'inquiries' },
+  { path: '/current-orders', icon: ClipboardList, en: 'Current Orders', ar: 'الطلبات الجارية', pageKey: 'current-orders' },
   { path: '/installment-requests', icon: ClipboardList, en: 'Installment Requests', ar: 'طلبات التقسيط ', pageKey: 'installment-requests' },
   { path: '/installments', icon: WalletCards, en: 'Installments', ar: 'الأقساط', pageKey: 'installments' },
   { path: '/installment-durations', icon: Clock, en: 'Installment durations', ar: 'مدد التقسيط', pageKey: 'installment-durations' },
@@ -72,20 +72,23 @@ const navItems = [
   { path: '/my-account', icon: Users, en: 'My account', ar: 'حسابي' },
 ];
 
-const permissionForPath: Record<string, [string, string]> = {
-  '/installments': ['financing_contract', 'read'],
-  '/installment-requests': ['installment', 'read'],
-  '/reports': ['report', 'read'],
-  '/suppliers': ['supplier', 'read'],
-  '/transfers': ['transfer', 'read'],
-  '/financing-companies': ['setting', 'read'],
+const permissionForPath: Record<string, Array<[string, string]>> = {
+  '/installments': [['financing_contract', 'read']],
+  '/installment-requests': [['installment', 'read']],
+  '/current-orders': [['customer', 'read'], ['order', 'read'], ['installment', 'read']],
+  '/reports': [['report', 'read']],
+  '/suppliers': [['supplier', 'read']],
+  '/transfers': [['transfer', 'read']],
+  '/financing-companies': [['setting', 'read']],
 };
 
 function canAccessPath(user: DesktopUser | null, path: string) {
   const required = permissionForPath[path];
   if (!required) return true;
   if (user?.role.name === 'super_admin') return true;
-  return user?.role.permissions.some((permission) => permission.resource === required[0] && permission.action === required[1]) ?? false;
+  return required.every(([resource, action]) =>
+    user?.role.permissions.some((permission) => permission.resource === resource && permission.action === action) ?? false
+  );
 }
 
 function AccessDenied({ lang }: { lang: Lang }) {
@@ -145,6 +148,7 @@ function Dashboard({ lang }: { lang: Lang }) {
 
 function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: (lang: Lang) => void; user: DesktopUser; onLogout: () => void }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const isRtl = lang === 'ar';
   const isSuperAdmin = user.role.name === 'super_admin';
@@ -156,6 +160,19 @@ function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: 
   });
   const selectedBranchId = isSuperAdmin ? viewingBranchId ?? undefined : user.branchId ?? undefined;
   const activeLabel = navItems.find(item => location.pathname.startsWith(item.path));
+
+  // Automatically close mobile drawer when navigating
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  const toggleMenu = () => {
+    if (window.innerWidth <= 1024) {
+      setMobileOpen(prev => !prev);
+    } else {
+      setCollapsed(prev => !prev);
+    }
+  };
 
   // Fetch desktop-specific permissions for non-super_admin users
   const myPermsQuery = useQuery({
@@ -176,18 +193,94 @@ function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: 
   const restrictedPages = {
     installments: gatedRoute(user, lang, '/installments', <Installments lang={lang} />),
     installmentRequests: gatedRoute(user, lang, '/installment-requests', <InstallmentRequests lang={lang} />),
+    currentOrders: gatedRoute(user, lang, '/current-orders', <CurrentOrders lang={lang} />),
     reports: gatedRoute(user, lang, '/reports', <Reports lang={lang} />),
     suppliers: gatedRoute(user, lang, '/suppliers', <Suppliers lang={lang} />),
     transfers: gatedRoute(user, lang, '/transfers', <Transfers lang={lang} />),
   };
-  return <div className={`desktop-shell ${collapsed ? 'sidebar-collapsed' : ''}`} dir={isRtl ? 'rtl' : 'ltr'}>
+  return <div className={`desktop-shell ${collapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'mobile-nav-open' : ''}`} dir={isRtl ? 'rtl' : 'ltr'}>
+    {mobileOpen && (
+      <div
+        className="sidebar-backdrop"
+        onClick={() => setMobileOpen(false)}
+        aria-hidden="true"
+      />
+    )}
     <aside className="desktop-sidebar">
-      <div className="brand-lockup"><button className="brand-emblem" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? (isRtl ? 'فتح القائمة' : 'Open dashboard menu') : (isRtl ? 'إغلاق القائمة' : 'Close dashboard menu')} title={collapsed ? (isRtl ? 'فتح القائمة' : 'Open menu') : (isRtl ? 'إغلاق القائمة' : 'Close menu')}><img src="/logo.png" alt="Moto System logo" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} /></button></div>
-      <nav className="desktop-nav">{navItems.filter(({ path, adminOnly, pageKey }) => (!adminOnly || isSuperAdmin) && canAccessPath(user, path) && isPageVisible(pageKey)).map(({ path, icon: Icon, en, ar }) => <NavLink key={path} to={path} className={({ isActive }) => `desktop-nav-link ${isActive ? 'active' : ''}`} title={collapsed ? (isRtl ? ar : en) : undefined}><Icon size={18} /><span>{isRtl ? ar : en}</span></NavLink>)}</nav>
-      <div className="sidebar-footer"><button className="desktop-nav-link logout-link" onClick={onLogout}><LogOut size={18} /><span>{isRtl ? 'تسجيل الخروج' : 'Sign out'}</span></button></div>
+      <div className="brand-lockup">
+        <button
+          className="brand-emblem"
+          onClick={toggleMenu}
+          aria-label={collapsed ? (isRtl ? 'فتح القائمة' : 'Open menu') : (isRtl ? 'إغلاق القائمة' : 'Close menu')}
+          title={collapsed ? (isRtl ? 'فتح القائمة' : 'Open menu') : (isRtl ? 'إغلاق القائمة' : 'Close menu')}
+        >
+          <img src="/logo.png" alt="Moto System logo" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+        </button>
+        <button
+          type="button"
+          className="mobile-sidebar-close"
+          onClick={() => setMobileOpen(false)}
+          aria-label={isRtl ? 'إغلاق القائمة' : 'Close menu'}
+        >
+          <X size={20} />
+        </button>
+      </div>
+      <nav className="desktop-nav">
+        {navItems.filter(({ path, adminOnly, pageKey }) => (!adminOnly || isSuperAdmin) && canAccessPath(user, path) && isPageVisible(pageKey)).map(({ path, icon: Icon, en, ar }) => (
+          <NavLink
+            key={path}
+            to={path}
+            onClick={() => setMobileOpen(false)}
+            className={({ isActive }) => `desktop-nav-link ${isActive ? 'active' : ''}`}
+            title={collapsed ? (isRtl ? ar : en) : undefined}
+          >
+            <Icon size={18} />
+            <span>{isRtl ? ar : en}</span>
+          </NavLink>
+        ))}
+      </nav>
+      <div className="sidebar-footer">
+        <button
+          className="desktop-nav-link logout-link"
+          onClick={() => { setMobileOpen(false); onLogout(); }}
+        >
+          <LogOut size={18} />
+          <span>{isRtl ? 'تسجيل الخروج' : 'Sign out'}</span>
+        </button>
+      </div>
     </aside>
     <div className="desktop-main">
-      <header className="desktop-topbar"><button className="icon-button" onClick={() => setCollapsed(!collapsed)} title={isRtl ? 'القائمة' : 'Menu'}>{collapsed ? <Menu size={19} /> : <X size={19} />}</button><div className="topbar-context"><strong>{isRtl ? activeLabel?.ar : activeLabel?.en}</strong><span>{new Date().toLocaleDateString(isRtl ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div><div className="topbar-actions">{isSuperAdmin && <label className="branch-switcher"><span>{isRtl ? 'الفرع' : 'Branch'}</span><select value={viewingBranchId ?? ''} onChange={(event) => setViewingBranchId(event.target.value || null)}><option value="">{isRtl ? 'كل الفروع' : 'All branches'}</option>{branchQuery.data?.items.map((branch) => <option key={branch.id} value={branch.id}>{isRtl ? branch.nameAr : branch.nameEn}</option>)}</select></label>}<span className="connection-dot"><i />{isRtl ? 'متصل' : 'Connected'}</span><button className="language-button" onClick={() => setLang(isRtl ? 'en' : 'ar')}>{isRtl ? 'English' : 'العربية'}</button></div></header>
+      <header className="desktop-topbar">
+        <button
+          className="icon-button menu-toggle-button"
+          onClick={toggleMenu}
+          aria-label={isRtl ? 'القائمة' : 'Menu'}
+          title={isRtl ? 'القائمة' : 'Menu'}
+        >
+          {mobileOpen || (!collapsed && window.innerWidth > 1024) ? <Menu size={19} /> : <Menu size={19} />}
+        </button>
+        <div className="topbar-context">
+          <strong>{isRtl ? activeLabel?.ar : activeLabel?.en}</strong>
+          <span>{new Date().toLocaleDateString(isRtl ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+        </div>
+        <div className="topbar-actions">
+          {isSuperAdmin && (
+            <label className="branch-switcher">
+              <span>{isRtl ? 'الفرع' : 'Branch'}</span>
+              <select value={viewingBranchId ?? ''} onChange={(event) => setViewingBranchId(event.target.value || null)}>
+                <option value="">{isRtl ? 'كل الفروع' : 'All branches'}</option>
+                {branchQuery.data?.items.map((branch) => (
+                  <option key={branch.id} value={branch.id}>{isRtl ? branch.nameAr : branch.nameEn}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <span className="connection-dot"><i />{isRtl ? 'متصل' : 'Connected'}</span>
+          <button className="language-button" onClick={() => setLang(isRtl ? 'en' : 'ar')}>
+            {isRtl ? 'English' : 'العربية'}
+          </button>
+        </div>
+      </header>
       <main className="desktop-content"><Routes>
         <Route path="/" element={<Dashboard lang={lang} />} />
         <Route path="/dashboard" element={<Dashboard lang={lang} />} />
@@ -197,7 +290,6 @@ function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: 
         <Route path="/reservations" element={<ReservationsPOS lang={lang} />} />
         <Route path="/reservations/new" element={<CreateReservation lang={lang} />} />
         <Route path="/reservations/:id" element={<ReservationDetailPOS lang={lang} />} />
-        <Route path="/offline-sync" element={<OfflineSync lang={lang} />} />
         <Route path="/history" element={<TransactionHistory lang={lang} />} />
         <Route path="/inventory" element={<Inventory lang={lang} branchId={selectedBranchId} />} />
         <Route path="/inventory/new" element={<InventoryForm lang={lang} branchId={selectedBranchId ?? undefined} />} />
@@ -207,6 +299,7 @@ function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: 
         <Route path="/transfers/new" element={<TransferCreate lang={lang} />} />
         <Route path="/customers" element={<Customers lang={lang} />} />
         <Route path="/inquiries" element={<CustomerInquiries lang={lang} />} />
+        <Route path="/current-orders" element={restrictedPages.currentOrders} />
         <Route path="/installments" element={restrictedPages.installments} />
         <Route path="/installments/:id" element={<InstallmentDetail lang={lang} />} />
         <Route path="/installment-requests" element={restrictedPages.installmentRequests} />

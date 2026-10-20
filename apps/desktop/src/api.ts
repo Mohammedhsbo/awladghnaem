@@ -172,6 +172,42 @@ async function apiFetch<T>(path: string, options: RequestInit = {}, canRefresh =
   return (Object.prototype.hasOwnProperty.call(json, 'data') ? json.data : json) as T;
 }
 
+async function apiFetchBlob(path: string, canRefresh = true): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      credentials: 'include',
+    });
+  } catch (reason) {
+    throw new Error(getApiErrorMessage(reason, 'Network unavailable. Check the connection and try again.'));
+  }
+
+  if (response.status === 401 && canRefresh) {
+    try {
+      await refreshAccessToken();
+    } catch {
+      clearToken();
+      window.dispatchEvent(new Event('pos-auth-expired'));
+      throw new Error('Session expired. Please sign in again.');
+    }
+    return apiFetchBlob(path, false);
+  }
+
+  if (!response.ok) {
+    let message = 'Request failed';
+    try {
+      const body = await response.json() as { error?: { message?: string }; message?: string };
+      message = body.error?.message ?? body.message ?? message;
+    } catch {
+      message = response.statusText || message;
+    }
+    throw new Error(message);
+  }
+
+  return response.blob();
+}
+
 // ─── Auth ────────────────────────────────────────────────
 export const auth = {
   login: (email: string, password: string) =>
@@ -463,6 +499,7 @@ export const motorcycles = {
   get: (id: string) => apiFetch<MotorcycleSearchResult>(`/motorcycles/${id}`),
   create: (data: MotorcycleCreatePayload) => apiFetch<MotorcycleSearchResult>('/motorcycles', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: MotorcycleInput) => apiFetch<MotorcycleSearchResult>(`/motorcycles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  updateColor: (id: string, color: string) => apiFetch<MotorcycleSearchResult>(`/motorcycles/${id}`, { method: 'PATCH', body: JSON.stringify({ color }) }),
   updateStatus: (id: string, status: string, reason?: string) => apiFetch<MotorcycleSearchResult>(`/motorcycles/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
   remove: (id: string) => apiFetch<void>(`/motorcycles/${id}`, { method: 'DELETE' }),
 };
@@ -1121,14 +1158,27 @@ export interface InquiryRecord {
   documentType: InquiryDocumentType;
   address?: string | null;
   occupation?: string | null;
+  firstGuarantorName?: string | null;
+  firstGuarantorPhone?: string | null;
+  firstGuarantorAddress?: string | null;
+  firstGuarantorOccupation?: string | null;
+  secondGuarantorName?: string | null;
+  secondGuarantorPhone?: string | null;
+  secondGuarantorAddress?: string | null;
+  secondGuarantorOccupation?: string | null;
   documentImage?: string;
   idCardFrontImage?: string;
   idCardBackImage?: string;
   guarantorIdFrontImage?: string;
   guarantorIdBackImage?: string;
+  guarantor2IdFrontImage?: string;
+  guarantor2IdBackImage?: string;
   guarantorSignatureImage?: string;
+  electricityLetterUploaded: boolean;
   downPayment?: number;
   motorcycleId?: string;
+  financingCompanyId?: string;
+  installmentDurationId?: string;
   motorcycle?: MotorcycleSearchResult;
   createdBy?: string;
   createdAt: string;
@@ -1140,13 +1190,24 @@ export interface InquiryInput {
   documentType: InquiryDocumentType;
   address?: string;
   occupation?: string;
+  firstGuarantorName?: string;
+  firstGuarantorPhone?: string;
+  firstGuarantorAddress?: string;
+  firstGuarantorOccupation?: string;
+  secondGuarantorName?: string;
+  secondGuarantorPhone?: string;
+  secondGuarantorAddress?: string;
+  secondGuarantorOccupation?: string;
   downPayment?: number;
   motorcycleId?: string;
   documentImage?: File;
+  electricityLetter?: File;
   idCardFrontImage?: File;
   idCardBackImage?: File;
   guarantorIdFrontImage?: File;
   guarantorIdBackImage?: File;
+  guarantor2IdFrontImage?: File;
+  guarantor2IdBackImage?: File;
   guarantorSignatureImage?: File;
   financingCompanyId?: string;
   installmentDurationId?: string;
@@ -1161,6 +1222,49 @@ export interface InstallmentDurationRecord {
   updatedAt: string;
 }
 
+function inquiryFormData(input: InquiryInput) {
+  const form = new FormData();
+  form.set('customerName', input.customerName);
+  form.set('customerPhone', input.customerPhone);
+  form.set('documentType', input.documentType);
+
+  for (const field of [
+    'address',
+    'occupation',
+    'firstGuarantorName',
+    'firstGuarantorPhone',
+    'firstGuarantorAddress',
+    'firstGuarantorOccupation',
+    'secondGuarantorName',
+    'secondGuarantorPhone',
+    'secondGuarantorAddress',
+    'secondGuarantorOccupation',
+  ] as const) {
+    const value = input[field];
+    if (value !== undefined) form.set(field, value);
+  }
+  if (input.downPayment !== undefined) form.set('downPayment', String(input.downPayment));
+  if (input.motorcycleId) form.set('motorcycleId', input.motorcycleId);
+  if (input.financingCompanyId) form.set('financingCompanyId', input.financingCompanyId);
+  if (input.installmentDurationId) form.set('installmentDurationId', input.installmentDurationId);
+
+  for (const field of [
+    'documentImage',
+    'electricityLetter',
+    'idCardFrontImage',
+    'idCardBackImage',
+    'guarantorIdFrontImage',
+    'guarantorIdBackImage',
+    'guarantor2IdFrontImage',
+    'guarantor2IdBackImage',
+    'guarantorSignatureImage',
+  ] as const) {
+    const file = input[field];
+    if (file) form.set(field, file);
+  }
+  return form;
+}
+
 export const installmentDurations = {
   list: () => apiFetch<InstallmentDurationRecord[]>('/installment-durations'),
   listAll: () => apiFetch<InstallmentDurationRecord[]>('/admin/installment-durations'),
@@ -1171,27 +1275,17 @@ export const installmentDurations = {
 
 export const inquiries = {
   list: () => apiFetch<InquiryRecord[]>('/inquiries'),
-  create: (input: InquiryInput) => {
+  create: (input: InquiryInput) => apiFetch<InquiryRecord>('/inquiries', { method: 'POST', body: inquiryFormData(input) }),
+  update: (id: string, input: InquiryInput) => apiFetch<InquiryRecord>(`/inquiries/${id}`, { method: 'PATCH', body: inquiryFormData(input) }),
+  uploadElectricityLetter: (id: string, file: File) => {
     const form = new FormData();
-    form.set('customerName', input.customerName);
-    form.set('customerPhone', input.customerPhone);
-    form.set('documentType', input.documentType);
-    if (input.address) form.set('address', input.address);
-    if (input.occupation) form.set('occupation', input.occupation);
-    if (input.downPayment !== undefined) form.set('downPayment', String(input.downPayment));
-    if (input.motorcycleId) form.set('motorcycleId', input.motorcycleId);
-    if (input.financingCompanyId) form.set('financingCompanyId', input.financingCompanyId);
-    if (input.installmentDurationId) form.set('installmentDurationId', input.installmentDurationId);
-    
-    if (input.documentImage) form.set('documentImage', input.documentImage);
-    if (input.idCardFrontImage) form.set('idCardFrontImage', input.idCardFrontImage);
-    if (input.idCardBackImage) form.set('idCardBackImage', input.idCardBackImage);
-    if (input.guarantorIdFrontImage) form.set('guarantorIdFrontImage', input.guarantorIdFrontImage);
-    if (input.guarantorIdBackImage) form.set('guarantorIdBackImage', input.guarantorIdBackImage);
-    if (input.guarantorSignatureImage) form.set('guarantorSignatureImage', input.guarantorSignatureImage);
-    
-    return apiFetch<InquiryRecord>('/inquiries', { method: 'POST', body: form });
+    form.set('file', file);
+    return apiFetch<{ electricityLetterUploaded: boolean }>(`/inquiries/${id}/electricity-letter`, {
+      method: 'POST',
+      body: form,
+    });
   },
+  downloadElectricityLetter: (id: string) => apiFetchBlob(`/inquiries/${id}/electricity-letter`),
   sendWhatsApp: (id: string) => apiFetch<{ phone: string; message: string }>(`/inquiries/${id}/send-whatsapp`, { method: 'POST' }),
   sendForReview: (id: string) => apiFetch<unknown>(`/inquiries/${id}/send-for-review`, { method: 'POST' }),
 };
@@ -1463,4 +1557,76 @@ export const customerFinancing = {
   updateRequest: (id: string, data: { buyerName?: string; buyerPhone?: string; financingCompanyId?: string; downPayment?: number }) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}/details`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteRequest: (id: string) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}`, { method: 'DELETE' }),
   getWhatsAppMessage: (id: string) => apiFetch<{ phone: string; message: string }>(`/admin/installment-requests/${id}/whatsapp`),
+};
+
+export type CurrentOrderPaymentMethod = 'CASH' | 'INSTALLMENT';
+
+export interface CurrentOrderRow {
+  id: string;
+  sourceType: CurrentOrderPaymentMethod;
+  customerId: string;
+  orderId: string | null;
+  motorcycleId: string;
+  motorcycleNumber: string | null;
+  chassisNumber: string | null;
+  vin: string | null;
+  customerCode: string | null;
+  buyerName: string | null;
+  buyerAddress: string | null;
+  nationalId: string | null;
+  model: string | null;
+  motorcycleType: string | null;
+  engineCapacity: string | null;
+  governorate: string | null;
+  color: string | null;
+  notes: string | null;
+  electricityLetterInquiryId: string | null;
+  electricityLetterUploaded: boolean;
+  paymentMethod: CurrentOrderPaymentMethod;
+}
+
+export interface CurrentOrdersResult {
+  items: CurrentOrderRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CurrentOrdersQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  paymentMethod?: CurrentOrderPaymentMethod;
+  sortBy?: 'createdAt' | 'buyerName' | 'motorcycleNumber';
+  sortOrder?: 'asc' | 'desc';
+  branchId?: string;
+}
+
+function buildCurrentOrdersQuery(params: CurrentOrdersQuery) {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.limit) query.set('limit', String(params.limit));
+  if (params.search) query.set('search', params.search);
+  if (params.paymentMethod) query.set('paymentMethod', params.paymentMethod);
+  if (params.sortBy) query.set('sortBy', params.sortBy);
+  if (params.sortOrder) query.set('sortOrder', params.sortOrder);
+  if (params.branchId) query.set('branchId', params.branchId);
+  return query;
+}
+
+export const currentOrders = {
+  list: (params: CurrentOrdersQuery) => apiFetch<CurrentOrdersResult>(`/current-orders?${buildCurrentOrdersQuery(params)}`),
+  export: (params: Omit<CurrentOrdersQuery, 'page' | 'limit'>) =>
+    apiFetchBlob(`/current-orders/export?${buildCurrentOrdersQuery(params)}`),
+  updateCustomerNationalId: (customerId: string, nationalId: string, expectedNationalId: string | null) =>
+    apiFetch<{ nationalId: string }>(`/current-orders/customers/${customerId}/national-id`, {
+      method: 'PATCH',
+      body: JSON.stringify({ nationalId, expectedNationalId }),
+    }),
+  updateCashOrderNotes: (orderId: string, notes: string) =>
+    apiFetch<{ notes: string | null }>(`/current-orders/cash-orders/${orderId}/notes`, {
+      method: 'PATCH',
+      body: JSON.stringify({ notes }),
+    }),
 };
