@@ -1543,7 +1543,13 @@ export interface InstallmentRequest {
   motorcycle?: any;
   financingCompany?: any;
   duration?: any;
-  inquiry?: { documentType?: InquiryDocumentType | null; address?: string | null; occupation?: string | null };
+  inquiry?: {
+    id: string;
+    documentType?: InquiryDocumentType | null;
+    address?: string | null;
+    occupation?: string | null;
+    electricityLetterUploaded: boolean;
+  } | null;
 }
 
 export const customerFinancing = {

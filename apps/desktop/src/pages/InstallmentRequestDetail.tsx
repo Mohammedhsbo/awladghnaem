@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, Edit3, ExternalLink, MessageCircle, Save, Trash2, User, Bike, FileImage, Printer } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { customerFinancing, type InstallmentRequest } from '../api';
+import { customerFinancing, inquiries, type InstallmentRequest } from '../api';
 import { formatInstallmentRequestHTML } from '../utils/receiptFormatter';
 
 function buildWhatsAppUrl(phone: string, message: string) {
@@ -30,6 +30,28 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
     enabled: Boolean(id),
   });
   const request = query.data;
+  const electricityLetterQuery = useQuery({
+    queryKey: ['installment-request-electricity-letter', id, request?.inquiry?.id],
+    queryFn: () => {
+      const inquiryId = request?.inquiry?.id;
+      if (!inquiryId) throw new Error('No inquiry is associated with this installment request.');
+      return inquiries.downloadElectricityLetter(inquiryId);
+    },
+    enabled: Boolean(request?.inquiry?.id && request?.inquiry?.electricityLetterUploaded),
+    retry: false,
+  });
+  const [electricityLetterUrl, setElectricityLetterUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const blob = electricityLetterQuery.data;
+    if (!blob) {
+      setElectricityLetterUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    setElectricityLetterUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [electricityLetterQuery.data]);
+
   const edit = useMutation({
     mutationFn: () => customerFinancing.updateRequest(id!, { buyerName: form.buyerName, buyerPhone: form.buyerPhone, financingCompanyId: form.financingCompanyId, downPayment: Number(form.downPayment) }),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['installment-request', id] }); setEditing(false); }
@@ -64,6 +86,8 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
   const startEdit = () => { setForm({ buyerName: request.buyerName, buyerPhone: request.buyerPhone, financingCompanyId: request.financingCompanyId, downPayment: String(request.downPayment) }); setEditing(true); };
   const buyerAddress = request.buyerAddress || request.inquiry?.address || '-';
   const buyerOccupation = request.buyerOccupation || request.inquiry?.occupation || '-';
+  const electricityLetterMissing = !request.inquiry?.id || !request.inquiry.electricityLetterUploaded;
+  const electricityLetterIsImage = electricityLetterQuery.data?.type.startsWith('image/') ?? false;
   const sStyle = statusStyles[request.status] ?? statusStyles.pending;
   const printRequest = () => {
     const printWindow = window.open('', '_blank');
@@ -201,6 +225,32 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="premium-stat-card" style={{ marginBottom: '1.25rem' }}>
+        <h3><FileImage size={18} /> جواب الكهرباء</h3>
+        {electricityLetterMissing ? (
+          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>لم يتم رفع جواب الكهرباء</p>
+        ) : electricityLetterQuery.isLoading ? (
+          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>جاري تحميل جواب الكهرباء...</p>
+        ) : electricityLetterQuery.isError ? (
+          <p role="alert" style={{ margin: 0, color: 'var(--danger, #b91c1c)' }}>تعذر تحميل جواب الكهرباء</p>
+        ) : electricityLetterUrl && electricityLetterIsImage ? (
+          <a href={electricityLetterUrl} target="_blank" rel="noopener noreferrer" aria-label="فتح جواب الكهرباء بحجم أكبر">
+            <img
+              src={electricityLetterUrl}
+              alt="جواب الكهرباء"
+              style={{ display: 'block', width: '100%', maxWidth: 720, maxHeight: 520, objectFit: 'contain', borderRadius: 10, background: '#f8fafc', border: '1px solid #dbeafe' }}
+            />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.5rem', color: 'var(--blue-dark)', fontSize: '0.8rem', fontWeight: 600 }}>
+              <ExternalLink size={14} /> فتح الصورة بحجم أكبر
+            </span>
+          </a>
+        ) : electricityLetterUrl ? (
+          <a href={electricityLetterUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+            <ExternalLink size={15} /> فتح جواب الكهرباء
+          </a>
+        ) : null}
       </div>
 
       {/* Documents */}
