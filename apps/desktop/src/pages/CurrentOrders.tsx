@@ -20,7 +20,6 @@ type EditableField = 'nationalId' | 'color' | 'notes';
 type EditState = { rowId: string; field: EditableField; value: string; original: string | null };
 
 const columns: Array<{ key: DisplayField; header: string; width: number }> = [
-  { key: 'motorcycleNumber', header: 'رقم الموتور', width: 18 },
   { key: 'chassisNumber', header: 'رقم الشاسيه', width: 20 },
   { key: 'customerCode', header: 'كود العميل', width: 16 },
   { key: 'buyerName', header: 'اسم المشتري', width: 24 },
@@ -30,7 +29,6 @@ const columns: Array<{ key: DisplayField; header: string; width: number }> = [
   { key: 'motorcycleType', header: 'نوع الدراجة', width: 18 },
   { key: 'engineCapacity', header: 'السعة', width: 14 },
   { key: 'vin', header: 'VIN', width: 22 },
-  { key: 'governorate', header: 'المحافظة', width: 18 },
   { key: 'color', header: 'اللون', width: 16 },
   { key: 'notes', header: 'ملاحظات', width: 30 },
   { key: 'electricityLetterUploaded', header: 'جواب كهرباء', width: 20 },
@@ -240,6 +238,7 @@ export default function CurrentOrders({ lang }: { lang: Lang }) {
           </button>
         : <span>{value}</span>;
     }
+    if (key === 'buyerAddress') return <span>{value}</span>;
     const editable = (key === 'nationalId' && canEditNationalId)
       || (key === 'color' && canEditColor)
       || (key === 'notes' && row.sourceType === 'CASH' && row.orderId !== null && canEditNotes);
@@ -305,21 +304,13 @@ export default function CurrentOrders({ lang }: { lang: Lang }) {
         </button>
       </div>
 
-      <div className="surface-panel" style={{ marginBottom: '1rem', padding: '0.9rem 1rem' }}>
-        <small>
-          {isRtl
-            ? 'كود العميل ورقم الشاسيه والمحافظة غير متاحة من مصدر معتمد. رقم VIN من سجل الدراجة، ونوع الدراجة من تصنيفها. رابط المستند لا يُعرض؛ استخدم التنزيل المحمي.'
-              : 'Customer code, chassis number, and governorate have no confirmed source. VIN comes from the motorcycle record and motorcycle type from its category. Private document URLs are not exposed; use the protected download.'}
-        </small>
-      </div>
-
       <div className="surface-panel" style={{ padding: '1rem', marginBottom: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder={isRtl ? 'بحث بالاسم أو رقم الموتور أو الشاسيه أو الرقم القومي' : 'Search name, motorcycle number, chassis, or national ID'}
+            placeholder={isRtl ? 'بحث بالاسم أو رقم الشاسيه أو VIN أو الرقم القومي' : 'Search name, chassis number, VIN, or national ID'}
             aria-label={isRtl ? 'بحث في الطلبات الجارية' : 'Search current orders'}
             style={{ flex: '1 1 260px', minWidth: 180, minHeight: 42, padding: '0 0.8rem', borderRadius: 8, border: '1px solid var(--pos-border)' }}
           />
@@ -357,11 +348,11 @@ export default function CurrentOrders({ lang }: { lang: Lang }) {
                   <thead>
                     <tr>
                       {columns.map((column) => {
-                        const sortable = column.key === 'buyerName' || column.key === 'motorcycleNumber';
+                        const sortable = column.key === 'buyerName' || column.key === 'chassisNumber';
                         const active = sortBy === column.key;
                         return <th key={column.key} scope="col" style={{ position: 'sticky', top: 0, zIndex: 1, padding: '0.8rem', whiteSpace: 'nowrap', background: 'var(--surface, #f5f8fc)', borderBottom: '1px solid var(--pos-border)' }}>
                           {sortable
-                            ? <button type="button" onClick={() => toggleSort(column.key as 'buyerName' | 'motorcycleNumber')} style={{ border: 0, background: 'transparent', font: 'inherit', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
+                            ? <button type="button" onClick={() => toggleSort(column.key as 'buyerName' | 'chassisNumber')} style={{ border: 0, background: 'transparent', font: 'inherit', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
                                 {column.header}{active ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : ''}
                               </button>
                             : column.header}

@@ -1573,7 +1573,6 @@ export interface CurrentOrderRow {
   customerId: string;
   orderId: string | null;
   motorcycleId: string;
-  motorcycleNumber: string | null;
   chassisNumber: string | null;
   vin: string | null;
   customerCode: string | null;
@@ -1583,7 +1582,6 @@ export interface CurrentOrderRow {
   model: string | null;
   motorcycleType: string | null;
   engineCapacity: string | null;
-  governorate: string | null;
   color: string | null;
   notes: string | null;
   electricityLetterInquiryId: string | null;
@@ -1604,7 +1602,7 @@ export interface CurrentOrdersQuery {
   limit?: number;
   search?: string;
   paymentMethod?: CurrentOrderPaymentMethod;
-  sortBy?: 'createdAt' | 'buyerName' | 'motorcycleNumber';
+  sortBy?: 'createdAt' | 'buyerName' | 'chassisNumber';
   sortOrder?: 'asc' | 'desc';
   branchId?: string;
 }
