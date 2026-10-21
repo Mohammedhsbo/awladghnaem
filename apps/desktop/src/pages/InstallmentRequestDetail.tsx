@@ -22,6 +22,7 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [selectedMotorcycleId, setSelectedMotorcycleId] = useState('');
   const [form, setForm] = useState({ buyerName: '', buyerPhone: '', financingCompanyId: '', downPayment: '' });
 
   const query = useQuery<InstallmentRequest>({
@@ -30,6 +31,16 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
     enabled: Boolean(id),
   });
   const request = query.data;
+  const motorcycleOptionsQuery = useQuery({
+    queryKey: ['installment-request-motorcycle-options', id],
+    queryFn: () => customerFinancing.motorcycleOptions(id!),
+    enabled: Boolean(id && request && request.status !== 'approved'),
+  });
+  useEffect(() => {
+    setSelectedMotorcycleId(request?.motorcycleId ?? '');
+  }, [request?.id, request?.motorcycleId]);
+  const selectedMotorcycle = motorcycleOptionsQuery.data?.find(motorcycle => motorcycle.id === selectedMotorcycleId)
+    ?? (request?.motorcycle?.id === selectedMotorcycleId ? request.motorcycle : null);
   const electricityLetterQuery = useQuery({
     queryKey: ['installment-request-electricity-letter', id, request?.inquiry?.id],
     queryFn: () => {
@@ -56,7 +67,17 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
     mutationFn: () => customerFinancing.updateRequest(id!, { buyerName: form.buyerName, buyerPhone: form.buyerPhone, financingCompanyId: form.financingCompanyId, downPayment: Number(form.downPayment) }),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['installment-request', id] }); setEditing(false); }
   });
-  const approve = useMutation({ mutationFn: () => customerFinancing.reviewRequest(id!, { status: 'approved' }), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['installment-request', id] }); } });
+  const approve = useMutation({
+    mutationFn: () => customerFinancing.reviewRequest(id!, {
+      status: 'approved',
+      ...(selectedMotorcycleId ? { motorcycleId: selectedMotorcycleId } : {}),
+    }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['installment-request', id] });
+      void queryClient.invalidateQueries({ queryKey: ['installment-requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['installment-request-motorcycle-options', id] });
+    },
+  });
   const remove = useMutation({ mutationFn: () => customerFinancing.deleteRequest(id!), onSuccess: () => navigate('/installment-requests') });
   const whatsapp = useMutation({ mutationFn: () => customerFinancing.getWhatsAppMessage(id!), onSuccess: ({ phone, message }) => window.open(buildWhatsAppUrl(phone, message), '_blank') });
 
@@ -116,8 +137,26 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
       ].filter(guarantor => Boolean(guarantor.name || guarantor.phone || guarantor.address || guarantor.occupation || guarantor.occupationAddress)) : [
         { name: request.guarantorName, phone: request.guarantorPhone, address: request.guarantorAddress },
       ],
-      motorcycle: { brand: motorcycle?.brand?.nameAr ?? motorcycle?.brand?.nameEn ?? '-', model: motorcycle?.model ?? '-', vin: motorcycle?.vin, year: motorcycle?.year, color: motorcycle?.color, price: request.motorcyclePrice },
-      financing: { company: request.financingCompany?.name ?? '-', downPayment: request.downPayment, installmentAmount: request.installmentAmount, monthlyInstallment: request.monthlyInstallment, durationMonths: request.durationMonths ?? request.duration?.months },
+      motorcycle: {
+        brand: motorcycle?.brand?.nameAr ?? motorcycle?.brand?.nameEn
+          ?? (request.inquiry?.requestedMotorcycle
+            ? (isRtl ? request.inquiry.requestedMotorcycle.brandNameAr : request.inquiry.requestedMotorcycle.brandNameEn)
+            : '-'),
+        model: motorcycle?.model ?? request.inquiry?.requestedMotorcycle?.model ?? '-',
+        vin: motorcycle?.vin,
+        engineNumber: motorcycle?.engineNumber,
+        year: motorcycle?.year,
+        color: motorcycle?.color,
+        fuelType: motorcycle?.fuelType,
+        price: motorcycle ? request.motorcyclePrice : null,
+      },
+      financing: {
+        company: request.financingCompany?.name ?? '-',
+        downPayment: request.downPayment,
+        installmentAmount: motorcycle ? request.installmentAmount : null,
+        monthlyInstallment: motorcycle ? request.monthlyInstallment : null,
+        durationMonths: request.durationMonths ?? request.duration?.months,
+      },
       documentType: request.inquiry?.documentType,
       documents: imageItems.flatMap(([label, url]) => url ? [{ label, url }] : []),
     }, lang);
@@ -150,15 +189,29 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
 
       {/* Action Buttons */}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-        <button className="premium-action-btn solid" onClick={() => whatsapp.mutate()} disabled={whatsapp.isPending}>
+        <button className="premium-action-btn solid" onClick={() => whatsapp.mutate()} disabled={whatsapp.isPending || !request.motorcycle}>
           <MessageCircle size={17} /> {isRtl ? ' إرسال عبر واتساب الى شركه التمويل ' : 'Send via WhatsApp to financing company'}
         </button>
         <button className="premium-action-btn outline" onClick={printRequest}>
           <Printer size={17} /> {isRtl ? 'طباعة الطلب' : 'Print request'}
         </button>
         {request.status !== 'approved' && (
-          <button className="premium-action-btn success-outline" onClick={() => approve.mutate()} disabled={approve.isPending}>
-            <CheckCircle size={17} /> {isRtl ? 'موافقة' : 'Approve'}
+          <button
+            className="premium-action-btn success-outline"
+            onClick={() => {
+              const changingUnit = Boolean(request.motorcycleId && selectedMotorcycleId && selectedMotorcycleId !== request.motorcycleId);
+              const confirmationMessage = changingUnit
+                ? (isRtl ? 'سيتم تغيير الدراجة المحددة صراحةً. هل تريد تخصيص الدراجة الجديدة والموافقة؟' : 'This explicitly changes the selected motorcycle. Allocate the new unit and approve?')
+                : (isRtl ? 'هل تريد تخصيص هذه الدراجة و الموافقة على الطلب؟' : 'Allocate this motorcycle and approve the request?');
+              if (!window.confirm(confirmationMessage)) return;
+              approve.mutate();
+            }}
+            disabled={approve.isPending || motorcycleOptionsQuery.isLoading || !selectedMotorcycle
+              || !motorcycleOptionsQuery.data?.some(motorcycle => motorcycle.id === selectedMotorcycleId)}
+          >
+            <CheckCircle size={17} /> {approve.isPending
+              ? (isRtl ? 'جارٍ التخصيص والموافقة...' : 'Allocating and approving...')
+              : (isRtl ? 'تخصيص الدراجة والموافقة' : 'Allocate motorcycle and approve')}
           </button>
         )}
         <button className="premium-action-btn outline" onClick={startEdit}>
@@ -168,6 +221,11 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
           <Trash2 size={17} /> {isRtl ? 'حذف' : 'Delete'}
         </button>
       </div>
+      {approve.isError && (
+        <div className="state-panel" role="alert" style={{ marginBottom: '1.25rem' }}>
+          {approve.error instanceof Error ? approve.error.message : (isRtl ? 'تعذر تخصيص الدراجة أو الموافقة على الطلب.' : 'Could not allocate the motorcycle or approve the request.')}
+        </div>
+      )}
 
       {/* Edit Form */}
       {editing && (
@@ -228,11 +286,64 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
         <div className="premium-stat-card">
           <h3><Bike size={18} /> {isRtl ? 'بيانات الطلب' : 'Request Info'}</h3>
           <div style={{ display: 'grid', gap: '0.6rem' }}>
+            {request.status !== 'approved' && (
+              <div style={{ display: 'grid', gap: '0.65rem', padding: '0.85rem', borderRadius: 10, background: '#f8fafc', border: '1px solid #dbeafe' }}>
+                <strong>{isRtl ? 'تخصيص وحدة المخزون' : 'Inventory unit allocation'}</strong>
+                {request.inquiry?.requestedMotorcycle && (
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                    {isRtl ? 'النوع/الموديل المطلوب: ' : 'Requested type/model: '}
+                    {isRtl
+                      ? `${request.inquiry.requestedMotorcycle.brandNameAr} ${request.inquiry.requestedMotorcycle.model} · ${request.inquiry.requestedMotorcycle.categoryNameAr}`
+                      : `${request.inquiry.requestedMotorcycle.brandNameEn} ${request.inquiry.requestedMotorcycle.model} · ${request.inquiry.requestedMotorcycle.categoryNameEn}`}
+                  </span>
+                )}
+                {motorcycleOptionsQuery.isLoading && <span>{isRtl ? 'جارٍ تحميل الوحدات المتاحة...' : 'Loading available units...'}</span>}
+                {motorcycleOptionsQuery.isError && (
+                  <span role="alert" style={{ color: '#b91c1c' }}>
+                    {isRtl ? 'تعذر تحميل وحدات المخزون.' : 'Could not load inventory units.'}
+                    <button type="button" className="secondary-action" onClick={() => void motorcycleOptionsQuery.refetch()}>
+                      {isRtl ? 'إعادة المحاولة' : 'Retry'}
+                    </button>
+                  </span>
+                )}
+                {motorcycleOptionsQuery.isSuccess && motorcycleOptionsQuery.data.length === 0 && (
+                  <span>{isRtl ? 'لا توجد وحدات متاحة ومتوافقة حالياً.' : 'No compatible available units at this time.'}</span>
+                )}
+                {motorcycleOptionsQuery.isSuccess && motorcycleOptionsQuery.data.length > 0 && (
+                  <label style={{ display: 'grid', gap: '0.35rem' }}>
+                    <span>{isRtl ? 'اختر الوحدة الفعلية' : 'Select the physical unit'}</span>
+                    <select value={selectedMotorcycleId} onChange={event => setSelectedMotorcycleId(event.target.value)}>
+                      <option value="">{isRtl ? '-- اختر وحدة --' : '-- Select a unit --'}</option>
+                      {request.motorcycleId && request.motorcycle
+                        && !motorcycleOptionsQuery.data.some(motorcycle => motorcycle.id === request.motorcycleId) && (
+                          <option value={request.motorcycleId} disabled>
+                            {isRtl ? 'الوحدة الحالية غير متاحة' : 'Currently linked unit is unavailable'}
+                          </option>
+                        )}
+                      {motorcycleOptionsQuery.data.map(motorcycle => (
+                        <option key={motorcycle.id} value={motorcycle.id}>
+                          {`${isRtl ? motorcycle.brand.nameAr : motorcycle.brand.nameEn} ${motorcycle.model} · ${motorcycle.year} · ${isRtl ? 'شاسيه' : 'Chassis'} ${motorcycle.vin} · ${isRtl ? 'موتور' : 'Motor'} ${motorcycle.engineNumber ?? '-'}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {selectedMotorcycle && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <span><strong>{isRtl ? 'رقم الشاسيه:' : 'Chassis number:'}</strong> {selectedMotorcycle.vin}</span>
+                    <span><strong>{isRtl ? 'رقم الموتور:' : 'Motor number:'}</strong> {selectedMotorcycle.engineNumber || '-'}</span>
+                    <span><strong>{isRtl ? 'السعر:' : 'Price:'}</strong> {Number(selectedMotorcycle.price).toLocaleString()} EGP</span>
+                  </div>
+                )}
+              </div>
+            )}
             {[
-              [isRtl ? 'الدراجة' : 'Motorcycle', `${request.motorcycle?.brand?.nameEn || ''} ${request.motorcycle?.model || '-'}`.trim()],
+              [isRtl ? 'الدراجة' : 'Motorcycle', request.motorcycle ? `${isRtl ? request.motorcycle.brand?.nameAr : request.motorcycle.brand?.nameEn} ${request.motorcycle.model}` : (isRtl ? 'لم يتم تخصيص وحدة بعد' : 'No unit allocated yet')],
+              [isRtl ? 'نوع الوقود' : 'Fuel type', request.motorcycle?.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : request.motorcycle?.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')],
+              [isRtl ? 'سعر الدراجة' : 'Motorcycle price', request.motorcycle ? `${request.motorcyclePrice.toLocaleString()} EGP` : '-'],
               [isRtl ? 'شركة التمويل' : 'Financing company', request.financingCompany?.name || '-'],
               [isRtl ? 'الدفعة المقدمة' : 'Down payment', request.downPayment != null ? `${request.downPayment.toLocaleString()} EGP` : '-'],
-              [isRtl ? 'القسط الشهري' : 'Monthly installment', request.monthlyInstallment != null ? `${request.monthlyInstallment.toLocaleString()} EGP` : '-'],
+              [isRtl ? 'القسط الشهري' : 'Monthly installment', request.motorcycle && request.monthlyInstallment != null ? `${request.monthlyInstallment.toLocaleString()} EGP` : '-'],
               [isRtl ? 'مدة التقسيط' : 'Duration', request.duration?.months ? `${request.duration.months} ${isRtl ? 'شهر' : 'months'}` : '-'],
             ].map(([label, val]) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem', padding: '0.55rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
@@ -240,6 +351,18 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
                 <span style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word', textAlign: isRtl ? 'left' : 'right' }}>{val}</span>
               </div>
             ))}
+            {request.status === 'approved' && request.motorcycle && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.4rem', padding: '0.55rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{isRtl ? 'رقم الشاسيه' : 'Chassis number'}</span>
+                  <span style={{ fontWeight: 600 }}>{request.motorcycle.vin}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.4rem', padding: '0.55rem 0', fontSize: '0.875rem' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{isRtl ? 'رقم الموتور' : 'Motor number'}</span>
+                  <span style={{ fontWeight: 600 }}>{request.motorcycle.engineNumber || '-'}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

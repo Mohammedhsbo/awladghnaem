@@ -73,6 +73,9 @@ export default function ReservationList({
                   {isRtl ? 'الدراجة:' : 'Motorcycle:'}
                 </span>{' '}
                 {reservation.motorcycle.model}
+                <div className="text-xs text-gray-500">
+                  {isRtl ? 'نوع الوقود' : 'Fuel type'}: {reservation.motorcycle.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : reservation.motorcycle.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}
+                </div>
               </div>
               <div>
                 <span className="text-gray-600">

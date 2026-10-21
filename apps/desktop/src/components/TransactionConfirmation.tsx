@@ -67,7 +67,10 @@ export default function TransactionConfirmation({
             </div>
             <div className="font-bold">{motorcycle.model}</div>
             <div className="text-sm text-gray-500">
-              {isRtl ? 'الهيكل' : 'VIN'}: {motorcycle.vin}
+              {isRtl ? 'رقم الشاسيه' : 'Chassis number'}: {motorcycle.vin}
+            </div>
+            <div className="text-sm text-gray-500">
+              {isRtl ? 'نوع الوقود' : 'Fuel type'}: {motorcycle.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : motorcycle.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}
             </div>
           </div>
 

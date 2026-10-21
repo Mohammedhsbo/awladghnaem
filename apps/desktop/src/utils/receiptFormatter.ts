@@ -11,6 +11,7 @@ export interface ReceiptData {
     model: string;
     vin: string;
     year: number;
+    fuelType?: 'PETROL' | 'ELECTRIC' | null;
     brand: {
       nameEn: string;
       nameAr: string;
@@ -46,7 +47,7 @@ export interface InstallmentRequestPrintData {
     occupation?: string | null;
     occupationAddress?: string | null;
   }>;
-  motorcycle: { brand: string; model: string; vin?: string | null; year?: number | null; color?: string | null; price?: number | null };
+  motorcycle: { brand: string; model: string; vin?: string | null; engineNumber?: string | null; year?: number | null; color?: string | null; fuelType?: 'PETROL' | 'ELECTRIC' | null; price?: number | null };
   financing: { company: string; downPayment?: number | null; installmentAmount?: number | null; monthlyInstallment?: number | null; durationMonths?: number | null };
   documentType?: string | null;
   documents: Array<{ label: string; url: string }>;
@@ -69,7 +70,7 @@ export function formatInstallmentRequestHTML(data: InstallmentRequestPrintData, 
     *{box-sizing:border-box}body{font-family:Arial,"Segoe UI",sans-serif;color:#26364d;margin:0;padding:12mm 15mm;font-size:11px}body:before{content:"";display:block;height:3px;background:#2849ad;margin-bottom:12px}.header{text-align:center;border-bottom:2px solid #2849ad;padding-bottom:10px;margin-bottom:12px}.header img{width:145px;max-height:55px;object-fit:contain}.header p{margin:5px 0 0;color:#777;font-size:10px}.meta{display:flex;justify-content:space-between;color:#555;font-size:10px;margin-bottom:12px}.section{margin-bottom:12px;break-inside:avoid}.title{background:#2849ad;color:white;padding:7px 9px;font-size:12px;font-weight:bold}.row{display:grid;grid-template-columns:38% 62%;min-height:26px;align-items:center;padding:5px 9px;border-bottom:1px solid #dce3ec}.row:nth-child(odd){background:#f7f9fc}.row strong{font-weight:600}.documents{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding-top:9px}.document{border:1px solid #cbd5e1;break-inside:avoid}.document img{display:block;width:100%;height:145px;object-fit:contain;background:#f8fafc}.document div{padding:5px;text-align:center;font-size:9px;background:#eff6ff}.muted{color:#777}.signature{width:155px;margin-top:45px;margin-left:0;margin-right:auto;border-top:1px solid #222;padding-top:7px;text-align:center;color:#777;font-size:10px}.footer{text-align:center;color:#999;border-top:1px solid #dce3ec;margin-top:22px;padding-top:8px;font-size:9px}@media print{body{padding:8mm 12mm}.no-print{display:none}}
   </style></head><body><div class="header"><img src="/logo.png" alt="${escapeHtml(label('Company logo', 'شعار المؤسسة'))}"><p>${label('Installment Request Details', 'تفاصيل طلب التقسيط')}</p></div><div class="meta"><span>${label('Request ID', 'رقم الطلب')}: <strong>${escapeHtml(data.id)}</strong></span><span>${label('Date', 'التاريخ')}: ${escapeHtml(new Date(data.createdAt).toLocaleString(isRtl ? 'ar-EG' : 'en-EG'))}</span></div>
   <div class="section"><div class="title">${label('Buyer Information', 'بيانات المشتري')}</div>${row(label('Name', 'الاسم'), data.buyer.name)}${row(label('Phone', 'الهاتف'), data.buyer.phone)}${row(label('Email', 'البريد الإلكتروني'), data.buyer.email)}${row(label('Address', 'العنوان'), data.buyer.address)}${row(label('Occupation', 'المهنة'), data.buyer.occupation)}</div>
-  <div class="section"><div class="title">${label('Motorcycle Details', 'بيانات الدراجة')}</div>${row(label('Brand', 'الماركة'), data.motorcycle.brand)}${row(label('Model', 'الموديل'), data.motorcycle.model)}${row('VIN', data.motorcycle.vin)}${row(label('Year', 'السنة'), data.motorcycle.year)}${row(label('Color', 'اللون'), data.motorcycle.color)}${row(label('Motorcycle Price', 'سعر الدراجة'), amount(data.motorcycle.price))}</div>
+  <div class="section"><div class="title">${label('Motorcycle Details', 'بيانات الدراجة')}</div>${row(label('Brand', 'الماركة'), data.motorcycle.brand)}${row(label('Model', 'الموديل'), data.motorcycle.model)}${row(label('Chassis number', 'رقم الشاسيه'), data.motorcycle.vin)}${row(label('Motor number', 'رقم الموتور'), data.motorcycle.engineNumber)}${row(label('Fuel type', 'نوع الوقود'), data.motorcycle.fuelType === 'PETROL' ? label('Petrol', 'بنزين') : data.motorcycle.fuelType === 'ELECTRIC' ? label('Electric', 'كهرباء') : label('Unknown', 'غير معروف'))}${row(label('Year', 'السنة'), data.motorcycle.year)}${row(label('Color', 'اللون'), data.motorcycle.color)}${row(label('Motorcycle Price', 'سعر الدراجة'), amount(data.motorcycle.price))}</div>
   <div class="section"><div class="title">${label('Financing Details', 'تفاصيل التقسيط')}</div>${row(label('Document Type', 'نوع المستند'), data.documentType === 'EMPLOYEE' ? label('Employee', 'موظف') : data.documentType === 'PENSION' ? label('Pension', 'معاش') : data.documentType === 'COMMERCIAL_REGISTRY' ? label('Commercial registry', 'سجل تجاري') : data.documentType === 'NEITHER' ? label('Guarantors / no supporting document', 'ضامنين / بدون مستند داعم') : '-')} ${row(label('Financing Company', 'شركة التمويل'), data.financing.company)}${row(label('Down Payment', 'الدفعة المقدمة'), amount(data.financing.downPayment))}${row(label('Installment Amount', 'مبلغ التقسيط'), amount(data.financing.installmentAmount ?? data.financing.monthlyInstallment))}${row(label('Duration', 'مدة التقسيط'), data.financing.durationMonths == null ? '-' : `${data.financing.durationMonths} ${label('months', 'شهر')}`)}${row(label('Status', 'الحالة'), data.status)}</div>
   <div class="section"><div class="title">${label('Guarantor Information', 'بيانات الضامنين')}</div>${data.guarantors.map((guarantor, index) => `${row(label(index === 0 ? 'First guarantor' : 'Second guarantor', index === 0 ? 'الضامن الأول' : 'الضامن الثاني'), guarantor.name)}${row(label('Phone', 'الهاتف'), guarantor.phone)}${row(label('Address', 'العنوان'), guarantor.address)}${row(label('Occupation', 'المهنة'), guarantor.occupation)}${row(label('Occupation Address', 'عنوان المهنة'), guarantor.occupationAddress ?? '')}`).join('')}</div>
   <div class="section"><div class="title">${label('Documents', 'المستندات')}</div><div class="documents">${documents}</div></div><div class="signature">${label('Customer Signature', 'توقيع العميل')}</div><div class="footer">${label('Thank you for your business', 'شكراً لتعاملكم معنا')}</div><div class="no-print"><button onclick="window.print()">${label('Print', 'طباعة')}</button></div></body></html>`;
@@ -111,7 +112,8 @@ export function formatReceiptForPrint(data: ReceiptData, lang: 'en' | 'ar'): str
   // Motorcycle
   lines.push(isRtl ? 'بيانات الدراجة النارية:' : 'Motorcycle Details:');
   lines.push(`  ${isRtl ? 'الموديل' : 'Model'}: ${data.motorcycle.model}`);
-  lines.push(`  ${isRtl ? 'رقم الهيكل' : 'VIN'}: ${data.motorcycle.vin}`);
+  lines.push(`  ${isRtl ? 'رقم الشاسيه' : 'Chassis number'}: ${data.motorcycle.vin}`);
+  lines.push(`  ${isRtl ? 'نوع الوقود' : 'Fuel type'}: ${data.motorcycle.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : data.motorcycle.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}`);
   lines.push(`  ${isRtl ? 'السنة' : 'Year'}: ${data.motorcycle.year}`);
   if (data.motorcycle.color) {
     lines.push(`  ${isRtl ? 'اللون' : 'Color'}: ${data.motorcycle.color}`);
@@ -220,7 +222,8 @@ export function formatReceiptHTML(data: ReceiptData, lang: 'en' | 'ar'): string 
       <div class="section-title">${isRtl ? 'بيانات الدراجة' : 'Motorcycle Details'}</div>
       <div class="row"><span class="label">${isRtl ? 'الماركة' : 'Brand'}</span><span class="value">${isRtl ? data.motorcycle.brand.nameAr : data.motorcycle.brand.nameEn}</span></div>
       <div class="row"><span class="label">${isRtl ? 'الموديل' : 'Model'}</span><span class="value">${data.motorcycle.model}</span></div>
-      <div class="row"><span class="label">${isRtl ? 'رقم الهيكل (VIN)' : 'VIN'}</span><span class="value">${data.motorcycle.vin}</span></div>
+      <div class="row"><span class="label">${isRtl ? 'رقم الشاسيه' : 'Chassis number'}</span><span class="value">${data.motorcycle.vin}</span></div>
+      <div class="row"><span class="label">${isRtl ? 'نوع الوقود' : 'Fuel type'}</span><span class="value">${data.motorcycle.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : data.motorcycle.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}</span></div>
       <div class="row"><span class="label">${isRtl ? 'السنة' : 'Year'}</span><span class="value">${data.motorcycle.year}</span></div>
       ${data.motorcycle.color ? `<div class="row"><span class="label">${isRtl ? 'اللون' : 'Color'}</span><span class="value">${data.motorcycle.color}</span></div>` : ''}
     </div>

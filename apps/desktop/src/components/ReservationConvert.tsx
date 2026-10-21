@@ -72,7 +72,10 @@ export default function ReservationConvert({
           </div>
           <div className="font-bold">{reservation.motorcycle.model}</div>
           <div className="text-sm text-gray-500">
-            {isRtl ? 'الهيكل' : 'VIN'}: {reservation.motorcycle.vin}
+            {isRtl ? 'رقم الشاسيه' : 'Chassis number'}: {reservation.motorcycle.vin}
+          </div>
+          <div className="text-sm text-gray-500">
+            {isRtl ? 'نوع الوقود' : 'Fuel type'}: {reservation.motorcycle.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : reservation.motorcycle.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}
           </div>
         </div>
 

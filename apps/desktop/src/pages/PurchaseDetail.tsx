@@ -12,16 +12,16 @@ const T = {
     error: 'Could not load this purchase.', order: 'Mark ordered', cancel: 'Cancel purchase',
     receive: 'Receive selected', delete: 'Delete', confirmDelete: 'Delete this purchase?',
     supplier: 'Supplier', branch: 'Branch', total: 'Total', status: 'Status', items: 'Items',
-    qty: 'Qty', unitCost: 'Unit cost', subtotal: 'Subtotal', noItems: 'No items.',
-    markReceived: 'Mark as received', received: 'Received', pending: 'Pending', note: 'Items with a VIN are created as motorcycles on receipt.',
+    qty: 'Qty', unitCost: 'Unit cost', subtotal: 'Subtotal', noItems: 'No items.', fuelType: 'Fuel type',
+    markReceived: 'Mark as received', received: 'Received', pending: 'Pending', note: 'Enter each item’s chassis and motor numbers before receiving it into inventory.',
   },
   ar: {
     title: 'تفاصيل الطلب', back: 'المشتريات', loading: 'جاري تحميل الطلب...',
     error: 'تعذر تحميل هذا الطلب.', order: 'تحديد كطلب', cancel: 'إلغاء الطلب',
     receive: 'استلام المحدد', delete: 'حذف', confirmDelete: 'حذف هذا الطلب؟',
     supplier: 'المورد', branch: 'الفرع', total: 'الإجمالي', status: 'الحالة', items: 'الأصناف',
-    qty: 'الكمية', unitCost: 'سعر الوحدة', subtotal: 'الإجمالي الفرعي', noItems: 'لا توجد أصناف.',
-    markReceived: 'تحديد كمستلم', received: 'مستلم', pending: 'قيد الاستلام', note: 'عند الاستلام، يتم إنشاء دراجة جديدة لكل صنف مع رقم هيكل.',
+    qty: 'الكمية', unitCost: 'سعر الوحدة', subtotal: 'الإجمالي الفرعي', noItems: 'لا توجد أصناف.', fuelType: 'نوع الوقود',
+    markReceived: 'تحديد كمستلم', received: 'مستلم', pending: 'قيد الاستلام', note: 'أدخل رقم الشاسيه ورقم الموتور لكل صنف قبل استلامه في المخزون.',
   },
 } as const;
 
@@ -34,6 +34,8 @@ export default function PurchaseDetail({ lang }: { lang: Lang }) {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [vinMap, setVinMap] = useState<Record<string, string>>({});
+  const [engineNumberMap, setEngineNumberMap] = useState<Record<string, string>>({});
+  const [fuelTypeMap, setFuelTypeMap] = useState<Record<string, 'PETROL' | 'ELECTRIC' | ''>>({});
 
   const { data: purchase, isLoading, isError, refetch } = useQuery({
     queryKey: ['desktop-purchase', id],
@@ -72,7 +74,15 @@ export default function PurchaseDetail({ lang }: { lang: Lang }) {
     mutationFn: () => {
       const items = Object.entries(selected)
         .filter(([, value]) => value)
-        .map(([purchaseItemId]) => ({ purchaseItemId, vin: (vinMap[purchaseItemId] ?? '').trim() }));
+        .map(([purchaseItemId]) => {
+          const vin = (vinMap[purchaseItemId] ?? '').trim();
+          const engineNumber = (engineNumberMap[purchaseItemId] ?? '').trim();
+          const fuelType = fuelTypeMap[purchaseItemId];
+          if (!vin || !engineNumber || !fuelType) {
+            throw new Error(lang === 'ar' ? 'أدخل رقم الشاسيه ورقم الموتور واختر نوع الوقود لكل دراجة.' : 'Enter chassis and motor numbers and select a fuel type for every motorcycle.');
+          }
+          return { purchaseItemId, vin, engineNumber, fuelType };
+        });
 
       if (items.length === 0) {
         throw new Error(lang === 'ar' ? 'اختر صنفاً واحداً على الأقل.' : 'Select at least one item.');
@@ -80,7 +90,11 @@ export default function PurchaseDetail({ lang }: { lang: Lang }) {
 
       const missingVin = items.some(item => !item.vin);
       if (missingVin) {
-        throw new Error(lang === 'ar' ? 'كل صنف محدد يحتاج إلى رقم هيكل.' : 'All selected items need a VIN.');
+        throw new Error(lang === 'ar' ? 'كل صنف محدد يحتاج إلى رقم الشاسيه.' : 'All selected items need a chassis number.');
+      }
+      const missingEngineNumber = items.some(item => !item.engineNumber);
+      if (missingEngineNumber) {
+        throw new Error(lang === 'ar' ? 'كل صنف محدد يحتاج إلى رقم الموتور.' : 'All selected items need a motor number.');
       }
 
       return purchases.receive(id!, items);
@@ -88,6 +102,7 @@ export default function PurchaseDetail({ lang }: { lang: Lang }) {
     onSuccess: () => {
       setSelected({});
       setVinMap({});
+      setEngineNumberMap({});
       void qc.invalidateQueries({ queryKey: ['desktop-purchase', id] });
       void qc.invalidateQueries({ queryKey: ['purchases'] });
     },
@@ -180,7 +195,7 @@ export default function PurchaseDetail({ lang }: { lang: Lang }) {
           {pendingItems.length === 0 ? <div className="state-panel success">{lang === 'ar' ? 'تم استلام كل الأصناف.' : 'All items are already received.'}</div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {pendingItems.map((item) => (
-                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '24px minmax(0, 2fr) minmax(180px, 1fr)', gap: 12, alignItems: 'center', padding: 10, border: '1px solid var(--border)', borderRadius: 12 }}>
+                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '24px minmax(0, 2fr) repeat(3, minmax(0, 1fr))', gap: 12, alignItems: 'center', padding: 10, border: '1px solid var(--border)', borderRadius: 12 }}>
                   <input type="checkbox" checked={!!selected[item.id]} onChange={(event) => setSelected(current => ({ ...current, [item.id]: event.target.checked }))} />
                   <div>
                     <strong>{item.model}</strong>
@@ -190,7 +205,25 @@ export default function PurchaseDetail({ lang }: { lang: Lang }) {
                     className="text-input"
                     value={vinMap[item.id] ?? ''}
                     onChange={(event) => setVinMap(current => ({ ...current, [item.id]: event.target.value.toUpperCase() }))}
-                    placeholder={lang === 'ar' ? 'رقم الهيكل' : 'VIN'}
+                    placeholder={lang === 'ar' ? 'رقم الشاسيه' : 'Chassis number'}
+                    disabled={!selected[item.id]}
+                  />
+                  <select
+                    className="text-input"
+                    value={fuelTypeMap[item.id] ?? ''}
+                    onChange={(event) => setFuelTypeMap(current => ({ ...current, [item.id]: event.target.value as 'PETROL' | 'ELECTRIC' | '' }))}
+                    aria-label={t.fuelType}
+                    disabled={!selected[item.id]}
+                  >
+                    <option value="">{lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}</option>
+                    <option value="PETROL">{lang === 'ar' ? 'بنزين' : 'Petrol'}</option>
+                    <option value="ELECTRIC">{lang === 'ar' ? 'كهرباء' : 'Electric'}</option>
+                  </select>
+                  <input
+                    className="text-input"
+                    value={engineNumberMap[item.id] ?? ''}
+                    onChange={(event) => setEngineNumberMap(current => ({ ...current, [item.id]: event.target.value.toUpperCase() }))}
+                    placeholder={lang === 'ar' ? 'رقم الموتور' : 'Motor number'}
                     disabled={!selected[item.id]}
                   />
                 </div>

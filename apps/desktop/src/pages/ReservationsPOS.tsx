@@ -228,6 +228,9 @@ export default function ReservationsPOS({ lang }: Props) {
                   <div style={{ fontSize: '0.8125rem', color: 'var(--text-2)' }}>
                     {lang === 'ar' ? reservation.motorcycle.brand.nameAr : reservation.motorcycle.brand.nameEn}{' '}
                     {reservation.motorcycle.model}
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>
+                      {lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}: {reservation.motorcycle.fuelType === 'PETROL' ? (lang === 'ar' ? 'بنزين' : 'Petrol') : reservation.motorcycle.fuelType === 'ELECTRIC' ? (lang === 'ar' ? 'كهرباء' : 'Electric') : (lang === 'ar' ? 'غير معروف' : 'Unknown')}
+                    </div>
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', fontFamily: 'monospace' }}>
                     {reservation.motorcycle.vin}

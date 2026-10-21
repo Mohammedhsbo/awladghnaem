@@ -21,7 +21,7 @@ const T = {
     placedOn: 'Placed On',
     status: 'Status',
     orderItems: 'Order Items',
-    vin: 'VIN',
+    vin: 'Chassis number',
     model: 'Model',
     year: 'Year',
     color: 'Color',
@@ -53,7 +53,7 @@ const T = {
     placedOn: 'تم الطلب في',
     status: 'الحالة',
     orderItems: 'عناصر الطلب',
-    vin: 'رقم الهيكل',
+    vin: 'رقم الشاسيه',
     model: 'الموديل',
     year: 'السنة',
     color: 'اللون',
@@ -393,6 +393,7 @@ export default function OrderDetailPOS({ lang }: Props) {
                   >
                     {t.vin}: {item.motorcycle.vin} • {t.year}: {item.motorcycle.year}
                     {item.motorcycle.color && ` • ${item.motorcycle.color}`}
+                    {' • '}{lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}: {item.motorcycle.fuelType === 'PETROL' ? (lang === 'ar' ? 'بنزين' : 'Petrol') : item.motorcycle.fuelType === 'ELECTRIC' ? (lang === 'ar' ? 'كهرباء' : 'Electric') : (lang === 'ar' ? 'غير معروف' : 'Unknown')}
                   </div>
                 </div>
                 <div

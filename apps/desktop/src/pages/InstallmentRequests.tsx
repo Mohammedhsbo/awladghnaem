@@ -19,6 +19,7 @@ const t = {
     rejectionReason: 'Rejection Reason (optional)', submit: 'Submit', cancel: 'Cancel',
     noData: 'No installment requests found.', loading: 'Loading...', error: 'Failed to load requests.',
     viewDetails: 'View Details', buyerInfo: 'Buyer Information', guarantorInfo: 'Guarantor Information',
+    assignAndApprove: 'Assign and approve',
     documents: 'Documents', financeInfo: 'Financing Details', buyerName: 'Name', buyerPhone: 'Phone',
     buyerEmail: 'Email', buyerAddress: 'Address', buyerOccupation: 'Occupation',
     docBuyerId: 'Buyer National ID', docSalary: 'Salary Slip', docApartment: 'Apartment Contract',
@@ -36,6 +37,7 @@ const t = {
     rejectionReason: 'سبب الرفض (اختياري)', submit: 'تأكيد', cancel: 'إلغاء',
     noData: 'لا توجد طلبات تقسيط.', loading: 'جاري التحميل...', error: 'فشل تحميل الطلبات.',
     viewDetails: 'عرض التفاصيل', buyerInfo: 'بيانات المشتري', guarantorInfo: 'بيانات الضامن',
+    assignAndApprove: 'تخصيص الدراجة والموافقة',
     documents: 'المستندات', financeInfo: 'تفاصيل التمويل', buyerName: 'الاسم', buyerPhone: 'رقم الهاتف',
     buyerEmail: 'البريد الإلكتروني', buyerAddress: 'العنوان', buyerOccupation: 'الوظيفة',
     docBuyerId: 'صورة بطاقة المشتري', docSalary: 'صورة مرتب/معاش', docApartment: 'عقد الإقامة',
@@ -75,6 +77,10 @@ export default function InstallmentRequests({ lang }: Props) {
   useEffect(() => { if (query.error) setFormError(query.error.message); }, [query.error]);
   
   function openReview(req: InstallmentRequest, mode: 'approve' | 'reject') { 
+    if (mode === 'approve') {
+      navigate(`/installment-requests/${req.id}`);
+      return;
+    }
     setSelected(req); 
     setModalMode(mode); 
     setRejectionReason('');
@@ -159,9 +165,9 @@ export default function InstallmentRequests({ lang }: Props) {
               <tr key={req.id} onClick={() => navigate(`/installment-requests/${req.id}`)} style={{ cursor: 'pointer' }}>
                 <td>{new Date(req.createdAt).toLocaleDateString(isRtl ? 'ar-SA' : 'en-US')}</td>
                 <td>{req.customer?.name || req.buyerName || '-'}</td>
-                <td>{req.motorcycle ? req.motorcycle.model : '-'}</td>
+                <td>{req.motorcycle ? `${req.motorcycle.model} · ${req.motorcycle.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : req.motorcycle.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}` : '-'}</td>
                 <td><span className="money-cell">{formatAmount(req.downPayment)}</span></td>
-                <td><span className="money-cell money-cell-primary">{formatAmount(req.installmentAmount ?? req.monthlyInstallment)}</span></td>
+                <td><span className="money-cell money-cell-primary">{req.motorcycle ? formatAmount(req.installmentAmount ?? req.monthlyInstallment) : '-'}</span></td>
                 <td><span className="duration-cell"><strong>{req.durationMonths ?? req.duration?.months ?? '-'}</strong> <small>{i18n.monthsUnit}</small></span></td>
                 <td>
                   <Badge 
@@ -177,7 +183,7 @@ export default function InstallmentRequests({ lang }: Props) {
                     </button>
                     {req.status === 'pending' && (
                       <>
-                        <button className="premium-action-btn success-outline" style={{ padding: '0.4rem' }} onClick={(event) => { event.stopPropagation(); openReview(req, 'approve'); }} title={i18n.approve}>
+                        <button className="premium-action-btn success-outline" style={{ padding: '0.4rem' }} onClick={(event) => { event.stopPropagation(); openReview(req, 'approve'); }} title={req.motorcycleId ? i18n.approve : i18n.assignAndApprove}>
                           <CheckCircle size={16} />
                         </button>
                         <button className="premium-action-btn danger-outline" style={{ padding: '0.4rem' }} onClick={(event) => { event.stopPropagation(); openReview(req, 'reject'); }} title={i18n.reject}>
@@ -203,7 +209,10 @@ export default function InstallmentRequests({ lang }: Props) {
               <button className="btn btn-outline" onClick={closeModal}>{i18n.cancel}</button>
               {selected.status === 'pending' && (
                 <>
-                  <button className="btn btn-outline" style={{ borderColor: 'var(--success)', color: 'var(--success)' }} onClick={() => setModalMode('approve')}>{i18n.approve}</button>
+                  <button className="btn btn-outline" style={{ borderColor: 'var(--success)', color: 'var(--success)' }} onClick={() => {
+                    navigate(`/installment-requests/${selected.id}`);
+                    closeModal();
+                  }}>{selected.motorcycleId ? i18n.approve : i18n.assignAndApprove}</button>
                   <button className="btn" style={{ background: 'var(--error-bg)', color: 'var(--error)' }} onClick={() => setModalMode('reject')}>{i18n.reject}</button>
                 </>
               )}
@@ -248,7 +257,7 @@ export default function InstallmentRequests({ lang }: Props) {
                 <div className="flex justify-between border-b pb-2" style={{ borderColor: 'var(--border-color)' }}><span className="text-muted">{i18n.company}:</span> <span className="font-medium">{selected.financingCompany?.name || '-'}</span></div>
                 <div className="flex justify-between border-b pb-2" style={{ borderColor: 'var(--border-color)' }}><span className="text-muted">{i18n.duration}:</span> <span className="font-medium">{selected.durationMonths ?? selected.duration?.months ?? '-'} {i18n.monthsUnit}</span></div>
                 <div className="flex justify-between border-b pb-2 md:border-b-0 md:pb-0" style={{ borderColor: 'var(--border-color)' }}><span className="text-muted">{i18n.downPayment}:</span> <span className="font-medium">{selected.downPayment != null ? selected.downPayment.toLocaleString() : '-'} EGP</span></div>
-                <div className="flex justify-between"><span className="text-muted">{i18n.amount}:</span> <span className="font-medium">{selected.installmentAmount != null ? selected.installmentAmount.toLocaleString() : selected.monthlyInstallment != null ? selected.monthlyInstallment.toLocaleString() : '-'} EGP</span></div>
+                <div className="flex justify-between"><span className="text-muted">{i18n.amount}:</span> <span className="font-medium">{selected.motorcycle ? (selected.installmentAmount != null ? selected.installmentAmount.toLocaleString() : selected.monthlyInstallment != null ? selected.monthlyInstallment.toLocaleString() : '-') : '-'} EGP</span></div>
               </div>
             </div>
 

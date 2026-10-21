@@ -44,7 +44,7 @@ export default function Inventory({ lang, branchId }: { lang: Lang; branchId?: s
       <div className="toolbar">
         <div className="search-box">
           <Search size={17} />
-          <input value={query} onChange={event => setQuery(event.target.value)} placeholder={isRtl ? 'ابحث بالموديل أو رقم الماتور...' : 'Search model or motor number...'} />
+          <input value={query} onChange={event => setQuery(event.target.value)} placeholder={isRtl ? 'ابحث بالموديل أو رقم الموتور...' : 'Search model or motor number...'} />
         </div>
         <span className="result-count">{data.length} {isRtl ? 'وحدة' : 'units'}</span>
       </div>
@@ -79,6 +79,7 @@ export default function Inventory({ lang, branchId }: { lang: Lang; branchId?: s
                 <span className="inventory-brand">{isRtl ? item.brand?.nameAr ?? '' : item.brand?.nameEn ?? ''}</span>
                 <h2>{item.model}</h2>
                 <p>{item.year} · {item.color || (isRtl ? 'بدون لون' : 'No color')}</p>
+                <p>{isRtl ? 'نوع الوقود' : 'Fuel type'}: {item.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : item.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}</p>
                 <code title={item.vin} style={{ color: 'var(--blue)' }}>{item.vin}</code>
                 <div className="inventory-footer">
                   <strong>{money(item.price)}</strong>

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { purchaseStatusSchema } from "./enums.js";
+import { motorcycleFuelTypeSchema } from "./motorcycle.js";
 
 export const purchaseItemSchema = z.object({
   id: z.string().uuid(),
@@ -59,7 +60,13 @@ export type UpdatePurchaseRequest = z.infer<typeof updatePurchaseSchema>;
 
 export const receivePurchaseItemSchema = z.object({
   purchaseItemId: z.string().uuid("Invalid item ID"),
-  vin: z.string().min(1, "VIN is required"),
+  vin: z.string().min(1, "رقم الشاسيه مطلوب."),
+  engineNumber: z
+    .string({ required_error: "رقم الموتور مطلوب." })
+    .trim()
+    .min(1, "رقم الموتور مطلوب.")
+    .max(100),
+  fuelType: motorcycleFuelTypeSchema,
 });
 
 export const receivePurchaseSchema = z.object({

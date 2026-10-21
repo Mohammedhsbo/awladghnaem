@@ -4,10 +4,21 @@ import type { BrandSummary } from "./brand.js";
 import type { CategorySummary } from "./category.js";
 import type { BranchSummary } from "./user.js";
 
+export enum MotorcycleFuelType {
+  PETROL = "PETROL",
+  ELECTRIC = "ELECTRIC",
+}
+
+export const motorcycleFuelTypeSchema = z.nativeEnum(MotorcycleFuelType);
+
 const vinSchema = z.string().trim().min(1).max(50).regex(/^[A-HJ-NPR-Z0-9-]+$/, {
   message: "VIN must contain only uppercase letters (excluding I, O and Q), digits and hyphens",
 });
-const engineNumberSchema = z.string().trim().max(100).optional();
+const engineNumberSchema = z
+  .string({ required_error: "رقم الموتور مطلوب." })
+  .trim()
+  .min(1, "رقم الموتور مطلوب.")
+  .max(100);
 const modelSchema = z.string().trim().min(1).max(200);
 const yearSchema = z.number().int().min(1900).max(2100);
 const colorSchema = z.string().trim().max(50);
@@ -22,6 +33,7 @@ export const createMotorcycleRequestSchema = z
   .object({
     vin: vinSchema,
     engineNumber: engineNumberSchema,
+    fuelType: motorcycleFuelTypeSchema,
     model: modelSchema,
     year: yearSchema,
     color: colorSchema.optional(),
@@ -44,7 +56,8 @@ export const updateMotorcycleRequestSchema = z
     model: modelSchema.optional(),
     year: yearSchema.optional(),
     color: colorSchema.optional(),
-    engineNumber: engineNumberSchema,
+    engineNumber: engineNumberSchema.optional(),
+    fuelType: motorcycleFuelTypeSchema.optional(),
     engineSize: engineSizeSchema.optional(),
     descriptionAr: descriptionSchema.optional(),
     descriptionEn: descriptionSchema.optional(),
@@ -113,6 +126,7 @@ export interface Motorcycle {
   id: string;
   vin: string;
   engineNumber?: string | null;
+  fuelType?: MotorcycleFuelType | null;
   model: string;
   year: number;
   color?: string | null;
@@ -134,6 +148,7 @@ export interface MotorcycleListItem {
   id: string;
   vin: string;
   engineNumber?: string | null;
+  fuelType?: MotorcycleFuelType | null;
   model: string;
   year: number;
   color?: string | null;
@@ -186,6 +201,7 @@ export interface CreateMotorcycleResponse {
   id: string;
   vin: string;
   engineNumber?: string | null;
+  fuelType?: MotorcycleFuelType | null;
   model: string;
   year: number;
   color?: string | null;

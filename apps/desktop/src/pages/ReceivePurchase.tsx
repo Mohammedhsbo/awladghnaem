@@ -16,20 +16,22 @@ const T = {
     supplier: 'Supplier', branch: 'Branch', poDate: 'PO Date',
     totalItems: 'Total Items', pendingItems: 'Pending', total: 'Total',
     receiveItems: 'Receive Items',
-    hint: 'Tick items, scan/type VIN, press Enter or click Receive.',
+    hint: 'Select items, then enter the chassis and motor numbers before receiving.',
     selectAll: 'Select All', deselectAll: 'Deselect All',
-    vinPlaceholder: 'Scan or type VIN…', alreadyReceived: 'Already received',
+    vinPlaceholder: 'Scan or type chassis number…', chassisNumber: 'Chassis number', engineNumberPlaceholder: 'Motor number', alreadyReceived: 'Already received',
     model: 'Model', qty: 'Qty',
     receiveSelected: 'Receive Selected', receiving: 'Receiving…',
     selected: 'selected', readyToReceive: 'ready to receive',
-    vinRequired: 'All selected items must have a VIN.',
+    vinRequired: 'All selected items must have a chassis number.',
+    engineNumberRequired: 'All selected items must have a motor number.',
     selectAtLeast: 'Select at least one item.',
-    dupVin: 'Duplicate VIN detected within this batch: ',
+    dupVin: 'Duplicate chassis number detected within this batch: ',
+    dupEngineNumber: 'Duplicate motor number detected within this batch: ',
     successMsg: (n: number) => `✓ ${n} motorcycle${n === 1 ? '' : 's'} received successfully!`,
     allDone: 'All items received!',
     allDoneSub: 'This purchase is fully received.',
     newPurchase: 'Select another purchase',
-    receivedVin: 'VIN',
+    receivedVin: 'Chassis number',
     step: (i: number, t: number) => `Item ${i} of ${t}`,
   },
   ar: {
@@ -39,20 +41,22 @@ const T = {
     supplier: 'المورد', branch: 'الفرع', poDate: 'تاريخ الطلب',
     totalItems: 'إجمالي الأصناف', pendingItems: 'معلق', total: 'الإجمالي',
     receiveItems: 'استلام الأصناف',
-    hint: 'اختر الأصناف، امسح أو أدخل رقم الهيكل، ثم اضغط Enter أو انقر استلام.',
+    hint: 'حدد الأصناف ثم أدخل رقم الشاسيه ورقم الموتور قبل الاستلام.',
     selectAll: 'تحديد الكل', deselectAll: 'إلغاء الكل',
-    vinPlaceholder: 'امسح أو أدخل رقم الهيكل…', alreadyReceived: 'تم الاستلام',
+    vinPlaceholder: 'امسح أو أدخل رقم الشاسيه…', chassisNumber: 'رقم الشاسيه', engineNumberPlaceholder: 'رقم الموتور', alreadyReceived: 'تم الاستلام',
     model: 'الموديل', qty: 'الكمية',
     receiveSelected: 'استلام المحدد', receiving: 'جاري الاستلام…',
     selected: 'محدد', readyToReceive: 'جاهز للاستلام',
-    vinRequired: 'يجب إدخال رقم الهيكل لجميع الأصناف المحددة.',
+    vinRequired: 'يجب إدخال رقم الشاسيه لجميع الأصناف المحددة.',
+    engineNumberRequired: 'يجب إدخال رقم الموتور لجميع الأصناف المحددة.',
     selectAtLeast: 'يرجى تحديد صنف واحد على الأقل.',
-    dupVin: 'رقم هيكل مكرر: ',
+    dupVin: 'رقم شاسيه مكرر: ',
+    dupEngineNumber: 'رقم موتور مكرر: ',
     successMsg: (n: number) => `✓ تم استلام ${n} دراجة نارية بنجاح!`,
     allDone: 'تم استلام جميع الأصناف!',
     allDoneSub: 'هذه الطلبية مستلمة بالكامل.',
     newPurchase: 'اختر طلبية أخرى',
-    receivedVin: 'رقم الهيكل',
+    receivedVin: 'رقم الشاسيه',
     step: (i: number, t: number) => `الصنف ${i} من ${t}`,
   },
 };
@@ -139,24 +143,29 @@ function PendingList({
   );
 }
 
-// ─── VIN Input Row ─────────────────────────────────────────
+// ─── Motorcycle identifier input row ────────────────────────
 interface ItemRowProps {
   item: PurchaseItem;
   index: number;
   total: number;
   checked: boolean;
   vin: string;
+  engineNumber: string;
+  fuelType: 'PETROL' | 'ELECTRIC' | '';
   onCheck: (checked: boolean) => void;
   onVinChange: (vin: string) => void;
+  onEngineNumberChange: (engineNumber: string) => void;
+  onFuelTypeChange: (fuelType: 'PETROL' | 'ELECTRIC' | '') => void;
   onVinCommit: () => void;
   nextRef: React.RefObject<HTMLInputElement | null> | null;
   lang: Lang;
 }
 
-function ItemRow({ item, index, total, checked, vin, onCheck, onVinChange, onVinCommit, nextRef, lang }: ItemRowProps) {
+function ItemRow({ item, index, total, checked, vin, engineNumber, fuelType, onCheck, onVinChange, onEngineNumberChange, onFuelTypeChange, onVinCommit, nextRef, lang }: ItemRowProps) {
   const t = T[lang];
   const inputRef = useRef<HTMLInputElement>(null);
   const vinOk = vin.trim().length >= 5;
+  const engineNumberOk = engineNumber.trim().length > 0;
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
@@ -188,7 +197,7 @@ function ItemRow({ item, index, total, checked, vin, onCheck, onVinChange, onVin
         </div>
       </div>
 
-      {/* VIN input */}
+      {/* Chassis number input */}
       <div className="vin-wrap">
         <input
           ref={inputRef}
@@ -205,10 +214,35 @@ function ItemRow({ item, index, total, checked, vin, onCheck, onVinChange, onVin
         {checked && <Barcode size={14} className="vin-scan-icon" />}
       </div>
 
-      {/* VIN validation indicator */}
+      {/* Motor number input */}
+      <div className="vin-wrap">
+        <input
+          className={`vin-input ${checked && engineNumberOk ? 'vin-ok' : ''}`}
+          placeholder={checked ? t.engineNumberPlaceholder : '—'}
+          value={engineNumber}
+          disabled={!checked}
+          onChange={e => onEngineNumberChange(e.target.value.toUpperCase())}
+          maxLength={100}
+          autoComplete="off"
+          spellCheck={false}
+        />
+      </div>
+
+      <select
+        className="vin-input"
+        value={fuelType}
+        disabled={!checked}
+        onChange={event => onFuelTypeChange(event.target.value as 'PETROL' | 'ELECTRIC' | '')}
+        aria-label={lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}
+      >
+        <option value="">{lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}</option>
+        <option value="PETROL">{lang === 'ar' ? 'بنزين' : 'Petrol'}</option>
+        <option value="ELECTRIC">{lang === 'ar' ? 'كهرباء' : 'Electric'}</option>
+      </select>
+      {/* Identifier validation indicator */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {checked && vinOk && <CheckCircle2 size={18} style={{ color: 'var(--green-light)' }} />}
-        {checked && !vinOk && vin.length > 0 && <AlertTriangle size={16} style={{ color: 'var(--amber-light)' }} />}
+        {checked && vinOk && engineNumberOk && fuelType && <CheckCircle2 size={18} style={{ color: 'var(--green-light)' }} />}
+        {checked && (!vinOk || !engineNumberOk || !fuelType) && <AlertTriangle size={16} style={{ color: 'var(--amber-light)' }} />}
       </div>
     </div>
   );
@@ -249,6 +283,8 @@ function ReceiveDetail({ purchaseId, lang }: { purchaseId: string; lang: Lang })
   // State per pending item
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [vins, setVins] = useState<Record<string, string>>({});
+  const [engineNumbers, setEngineNumbers] = useState<Record<string, string>>({});
+  const [fuelTypes, setFuelTypes] = useState<Record<string, 'PETROL' | 'ELECTRIC' | ''>>({});
   const [banner, setBanner] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
   const [sessionReceived, setSessionReceived] = useState(0);
 
@@ -259,7 +295,9 @@ function ReceiveDetail({ purchaseId, lang }: { purchaseId: string; lang: Lang })
   const doneItems = (purchase?.items ?? []).filter(i => i.motorcycleId);
 
   const selectedIds = Object.entries(checked).filter(([, v]) => v).map(([k]) => k);
-  const readyCount = selectedIds.filter(id => (vins[id] ?? '').trim().length >= 5).length;
+  const readyCount = selectedIds.filter(id =>
+    (vins[id] ?? '').trim().length >= 5 && (engineNumbers[id] ?? '').trim().length > 0 && !!fuelTypes[id]
+  ).length;
 
   function selectAll() {
     const map: Record<string, boolean> = {};
@@ -282,6 +320,8 @@ function ReceiveDetail({ purchaseId, lang }: { purchaseId: string; lang: Lang })
       setBanner({ type: 'success', msg: t.successMsg(count) });
       setChecked({});
       setVins({});
+      setEngineNumbers({});
+      setFuelTypes({});
     },
     onError: (e: Error) => {
       setBanner({ type: 'error', msg: e.message });
@@ -293,6 +333,9 @@ function ReceiveDetail({ purchaseId, lang }: { purchaseId: string; lang: Lang })
     if (selectedIds.length === 0) { setBanner({ type: 'info', msg: t.selectAtLeast }); return; }
     const missing = selectedIds.find(id => !(vins[id] ?? '').trim());
     if (missing) { setBanner({ type: 'info', msg: t.vinRequired }); return; }
+    const missingEngineNumber = selectedIds.find(id => !(engineNumbers[id] ?? '').trim());
+    if (missingEngineNumber) { setBanner({ type: 'info', msg: t.engineNumberRequired }); return; }
+    if (selectedIds.some(id => !fuelTypes[id])) { setBanner({ type: 'info', msg: lang === 'ar' ? 'يرجى اختيار نوع الوقود لكل دراجة.' : 'Select a fuel type for every motorcycle.' }); return; }
     // Check dup VIN within batch
     const vinList = selectedIds.map(id => (vins[id] ?? '').trim().toUpperCase());
     const seen = new Set<string>();
@@ -300,9 +343,17 @@ function ReceiveDetail({ purchaseId, lang }: { purchaseId: string; lang: Lang })
       if (seen.has(v)) { setBanner({ type: 'error', msg: t.dupVin + v }); return; }
       seen.add(v);
     }
+    const engineNumberList = selectedIds.map(id => (engineNumbers[id] ?? '').trim().toUpperCase());
+    const seenEngineNumbers = new Set<string>();
+    for (const number of engineNumberList) {
+      if (seenEngineNumbers.has(number)) { setBanner({ type: 'error', msg: t.dupEngineNumber + number }); return; }
+      seenEngineNumbers.add(number);
+    }
     const payload: ReceiveItemInput[] = selectedIds.map(id => ({
       purchaseItemId: id,
       vin: (vins[id] ?? '').trim().toUpperCase(),
+      engineNumber: (engineNumbers[id] ?? '').trim().toUpperCase(),
+      fuelType: fuelTypes[id] as 'PETROL' | 'ELECTRIC',
     }));
     receiveMut.mutate(payload);
   }
@@ -416,7 +467,7 @@ function ReceiveDetail({ purchaseId, lang }: { purchaseId: string; lang: Lang })
 
           {/* Column headers */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '44px 1fr 200px 100px',
+            display: 'grid', gridTemplateColumns: '44px 1fr 180px 180px 160px 40px',
             gap: '0.75rem', padding: '0.5rem 1.25rem',
             borderBottom: '1px solid var(--pos-border)',
             fontSize: '0.7rem', color: 'var(--text-3)',
@@ -424,7 +475,9 @@ function ReceiveDetail({ purchaseId, lang }: { purchaseId: string; lang: Lang })
           }}>
             <span></span>
             <span>{t.model}</span>
-            <span>{t.vinPlaceholder.split(' ')[0]}</span>
+            <span>{t.chassisNumber}</span>
+            <span>{t.engineNumberPlaceholder}</span>
+            <span>{lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}</span>
             <span></span>
           </div>
 
@@ -443,11 +496,19 @@ function ReceiveDetail({ purchaseId, lang }: { purchaseId: string; lang: Lang })
                 total={pendingItems.length}
                 checked={!!checked[item.id]}
                 vin={vins[item.id] ?? ''}
+                engineNumber={engineNumbers[item.id] ?? ''}
+                fuelType={fuelTypes[item.id] ?? ''}
                 onCheck={(v) => {
                   setChecked(c => ({ ...c, [item.id]: v }));
-                  if (!v) setVins(vs => ({ ...vs, [item.id]: '' }));
+                  if (!v) {
+                    setVins(vs => ({ ...vs, [item.id]: '' }));
+                    setEngineNumbers(numbers => ({ ...numbers, [item.id]: '' }));
+                    setFuelTypes(types => ({ ...types, [item.id]: '' }));
+                  }
                 }}
                 onVinChange={(v) => setVins(vs => ({ ...vs, [item.id]: v }))}
+                onEngineNumberChange={(number) => setEngineNumbers(numbers => ({ ...numbers, [item.id]: number }))}
+                onFuelTypeChange={(fuelType) => setFuelTypes(types => ({ ...types, [item.id]: fuelType }))}
                 onVinCommit={() => {}}
                 nextRef={nextRef as React.RefObject<HTMLInputElement | null>}
                 lang={lang}

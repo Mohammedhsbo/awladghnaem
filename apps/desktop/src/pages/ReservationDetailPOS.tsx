@@ -24,7 +24,7 @@ const T = {
     brand: 'Brand',
     model: 'Model',
     year: 'Year',
-    vin: 'VIN',
+    vin: 'Chassis number',
     color: 'Color',
     branch: 'Branch',
     source: 'Source',
@@ -87,7 +87,7 @@ const T = {
     brand: 'العلامة التجارية',
     model: 'الموديل',
     year: 'السنة',
-    vin: 'رقم الهيكل',
+    vin: 'رقم الشاسيه',
     color: 'اللون',
     branch: 'الفرع',
     source: 'المصدر',
@@ -509,6 +509,10 @@ export default function ReservationDetailPOS({ lang }: Props) {
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>{t.vin}</div>
             <div style={{ fontSize: '0.875rem', fontFamily: 'monospace' }}>{reservation.motorcycle.vin}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>{lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}</div>
+            <div style={{ fontSize: '0.875rem' }}>{reservation.motorcycle.fuelType === 'PETROL' ? (lang === 'ar' ? 'بنزين' : 'Petrol') : reservation.motorcycle.fuelType === 'ELECTRIC' ? (lang === 'ar' ? 'كهرباء' : 'Electric') : (lang === 'ar' ? 'غير معروف' : 'Unknown')}</div>
           </div>
         </div>
       </div>

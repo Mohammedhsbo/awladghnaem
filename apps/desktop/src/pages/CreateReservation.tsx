@@ -29,7 +29,7 @@ const T = {
     change: 'Change',
     searchCustomer: 'Search Customer',
     createNewCustomer: 'Create New Customer',
-    searchMotorcycles: 'Search motorcycles by VIN or model...',
+    searchMotorcycles: 'Search motorcycles by chassis number or model...',
     availableMotorcycles: 'Available Motorcycles',
     select: 'Select',
     noMotorcycles: 'No available motorcycles found',
@@ -44,7 +44,7 @@ const T = {
     depositTooHigh: 'Deposit cannot exceed motorcycle price',
     continue: 'Continue',
     back: 'Back',
-    vin: 'VIN',
+    vin: 'Chassis number',
     model: 'Model',
     year: 'Year',
     price: 'Price',
@@ -65,7 +65,7 @@ const T = {
     change: 'تغيير',
     searchCustomer: 'البحث عن عميل',
     createNewCustomer: 'إنشاء عميل جديد',
-    searchMotorcycles: 'ابحث عن الدراجات بواسطة رقم الهيكل أو الموديل...',
+    searchMotorcycles: 'ابحث عن الدراجات بواسطة رقم الشاسيه أو الموديل...',
     availableMotorcycles: 'الدراجات المتاحة',
     select: 'اختيار',
     noMotorcycles: 'لا توجد دراجات متاحة',
@@ -80,7 +80,7 @@ const T = {
     depositTooHigh: 'لا يمكن أن يتجاوز العربون سعر الدراجة',
     continue: 'متابعة',
     back: 'رجوع',
-    vin: 'رقم الهيكل',
+    vin: 'رقم الشاسيه',
     model: 'الموديل',
     year: 'السنة',
     price: 'السعر',
@@ -440,6 +440,9 @@ export default function CreateReservation({ lang }: Props) {
                       <div style={{ fontSize: '0.875rem', color: 'var(--text-2)' }}>
                         {t.year}: {motorcycle.year}
                         {motorcycle.color && ` • ${motorcycle.color}`}
+                      </div>
+                      <div style={{ fontSize: '0.875rem', color: 'var(--text-2)' }}>
+                        {lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}: {motorcycle.fuelType === 'PETROL' ? (lang === 'ar' ? 'بنزين' : 'Petrol') : motorcycle.fuelType === 'ELECTRIC' ? (lang === 'ar' ? 'كهرباء' : 'Electric') : (lang === 'ar' ? 'غير معروف' : 'Unknown')}
                       </div>
                       <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--blue-light)', marginTop: '0.5rem' }}>
                         {formatCurrency(motorcycle.price)}

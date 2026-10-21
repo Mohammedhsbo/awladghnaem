@@ -94,7 +94,7 @@ export default function TransactionHistory({ lang }: { lang: 'en' | 'ar' }) {
       {/* Filters */}
       <div className="history-filters bg-white border border-gray-200 rounded-lg p-4 space-y-3">
         <div>
-          <div className="search-box"><Search size={17} /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder={isRtl ? 'رقم الطلب أو العميل أو الهيكل...' : 'Order, customer, or VIN...'} /></div>
+          <div className="search-box"><Search size={17} /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder={isRtl ? 'رقم الطلب أو العميل أو رقم الشاسيه...' : 'Order, customer, or chassis number...'} /></div>
         </div>
 
         <div className="history-filter-row"><select className="pos-input" value={status} onChange={(event) => { setStatus(event.target.value as OrderStatus | ''); setPage(1); }}><option value="">{isRtl ? 'كل الحالات' : 'All statuses'}</option>{(['draft', 'confirmed', 'processing', 'awaiting_delivery', 'completed', 'cancelled', 'refunded'] as OrderStatus[]).map((value) => <option key={value} value={value}>{value}</option>)}</select><DateRangeFilter startLabel={isRtl ? 'من' : 'From'} endLabel={isRtl ? 'إلى' : 'To'} startValue={startDate} endValue={endDate} onStartChange={(value) => { setStartDate(value); setPage(1); }} onEndChange={(value) => { setEndDate(value); setPage(1); }} /></div>

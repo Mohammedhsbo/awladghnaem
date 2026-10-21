@@ -10,6 +10,7 @@ type Lang = 'en' | 'ar';
 const emptyForm = (branchId?: string): MotorcycleInput => ({
   vin: '',
   engineNumber: '',
+  fuelType: undefined,
   model: '',
   year: new Date().getFullYear(),
   color: '',
@@ -41,6 +42,7 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
     setForm({
       vin: detail.data.vin,
       engineNumber: detail.data.engineNumber ?? '',
+      fuelType: detail.data.fuelType ?? undefined,
       model: detail.data.model,
       year: detail.data.year,
       color: detail.data.color ?? '',
@@ -62,7 +64,8 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
   const createMut = useMutation({
     mutationFn: (data: MotorcycleInput) => motorcycles.create({
       vin: String(data.vin ?? '').trim(),
-      engineNumber: String(data.engineNumber ?? '').trim() || undefined,
+      engineNumber: String(data.engineNumber ?? '').trim(),
+      fuelType: data.fuelType!,
       model: String(data.model ?? '').trim(),
       year: Number(data.year || new Date().getFullYear()),
       price: Number(data.price ?? 0),
@@ -99,16 +102,27 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
     setError(null);
 
     const vin = String(form.vin ?? '').trim();
+    const engineNumber = String(form.engineNumber ?? '').trim();
+    const fuelType = form.fuelType;
     const model = String(form.model ?? '').trim();
     const price = Number(form.price ?? 0);
     const costPrice = Number(form.costPrice ?? 0);
+
+    if (!engineNumber) {
+      setError(isRtl ? 'رقم الموتور مطلوب.' : 'Motor number is required.');
+      return;
+    }
+    if (!fuelType) {
+      setError(isRtl ? 'يرجى اختيار نوع الوقود.' : 'Please select a fuel type.');
+      return;
+    }
 
     if (!vin || !model || !form.brandId || !form.categoryId || !form.branchId || price <= 0 || costPrice < 0) {
       setError(isRtl ? 'يرجى إكمال جميع الحقول المطلوبة.' : 'Please complete all required fields.');
       return;
     }
 
-    const payload: MotorcycleInput = { ...form, vin, model, price, costPrice, brandId: form.brandId, categoryId: form.categoryId, branchId: form.branchId, images: form.images ?? [] };
+    const payload: MotorcycleInput = { ...form, vin, engineNumber, fuelType, model, price, costPrice, brandId: form.brandId, categoryId: form.categoryId, branchId: form.branchId, images: form.images ?? [] };
 
     if (editing) {
       const { branchId: _branchId, ...updatePayload } = payload;
@@ -148,18 +162,27 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
 
         <div className="inventory-fields">
           <label className="field-label">
-            <span>VIN *</span>
+            <span>{isRtl ? 'رقم الشاسيه *' : 'Chassis number *'}</span>
             <input className="text-input" value={form.vin ?? ''} onChange={event => setForm(current => ({ ...current, vin: event.target.value.toUpperCase() }))} required />
           </label>
 
           <label className="field-label">
-            <span>{isRtl ? 'رقم المحرك' : 'Engine number'}</span>
-            <input className="text-input" value={form.engineNumber ?? ''} onChange={event => setForm(current => ({ ...current, engineNumber: event.target.value.toUpperCase() }))} />
+            <span>{isRtl ? 'رقم الموتور *' : 'Motor number *'}</span>
+            <input className="text-input" value={form.engineNumber ?? ''} onChange={event => setForm(current => ({ ...current, engineNumber: event.target.value.toUpperCase() }))} required />
           </label>
 
           <label className="field-label">
             <span>{isRtl ? 'الموديل *' : 'Model *'}</span>
             <input className="text-input" value={form.model ?? ''} onChange={event => setForm(current => ({ ...current, model: event.target.value }))} required />
+          </label>
+
+          <label className="field-label">
+            <span>{isRtl ? 'نوع الوقود *' : 'Fuel type *'}</span>
+            <select className="text-input" value={form.fuelType ?? ''} onChange={event => setForm(current => ({ ...current, fuelType: event.target.value as MotorcycleInput['fuelType'] }))} required>
+              <option value="">{isRtl ? 'اختر نوع الوقود' : 'Select fuel type'}</option>
+              <option value="PETROL">{isRtl ? 'بنزين' : 'Petrol'}</option>
+              <option value="ELECTRIC">{isRtl ? 'كهرباء' : 'Electric'}</option>
+            </select>
           </label>
 
           <label className="field-label">

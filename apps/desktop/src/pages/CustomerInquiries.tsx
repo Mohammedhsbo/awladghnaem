@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FileImage, Plus, PenTool, CheckCircle2 } from 'lucide-react';
-import { inquiries, financingCompanies, installmentDurations, type InquiryInput, type InquiryDocumentType, type InquiryRecord, pos, getUser } from '../api';
+import { inquiries, financingCompanies, installmentDurations, type InquiryInput, type InquiryDocumentType, type InquiryMotorcycleOption, type InquiryRecord, getUser } from '../api';
 import { DataList, DataTableState } from '../components/DataTable';
-import MotorcycleSearchPOS from '../components/MotorcycleSearchPOS';
 import { useViewingBranch } from '../contexts/ViewingBranchContext';
 
 type Lang = 'en' | 'ar';
 type InquiryImageField = 'documentImage' | 'idCardFrontImage' | 'idCardBackImage' | 'guarantorIdFrontImage' | 'guarantorIdBackImage' | 'guarantor2IdFrontImage' | 'guarantor2IdBackImage';
+
+function isNewInquiryNavigation(state: unknown): boolean {
+  return typeof state === 'object' && state !== null &&
+    'openNewInquiry' in state && state.openNewInquiry === true;
+}
 
 function InquiryImageUpload({ label, file, savedUrl, required, onChange }: {
   label: string;
@@ -47,12 +50,13 @@ function InquiryImageUpload({ label, file, savedUrl, required, onChange }: {
 export default function CustomerInquiries({ lang }: { lang: Lang }) {
   const isRtl = lang === 'ar';
   const queryClient = useQueryClient();
+  const location = useLocation();
   const navigate = useNavigate();
+  const openNewInquiry = isNewInquiryNavigation(location.state);
   const { viewingBranchId } = useViewingBranch();
   const user = getUser();
   
-  const location = useLocation();
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(openNewInquiry);
   const [form, setForm] = useState<{
     customerName: string;
     customerPhone: string;
@@ -70,7 +74,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     secondGuarantorOccupationAddress: string;
     documentType: InquiryDocumentType;
     downPayment: string;
-    motorcycleId: string;
+    requestedMotorcycle: InquiryMotorcycleOption | null;
     financingCompanyId: string;
     installmentDurationId: string;
   }>({
@@ -90,7 +94,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     secondGuarantorOccupationAddress: '',
     documentType: 'EMPLOYEE',
     downPayment: '',
-    motorcycleId: '',
+    requestedMotorcycle: null,
     financingCompanyId: '',
     installmentDurationId: '',
   });
@@ -110,27 +114,23 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   
   const [error, setError] = useState<string | null>(null);
   const [savedInquiryId, setSavedInquiryId] = useState<string | null>(null);
+  const [savedInquiryHasPhysicalMotorcycle, setSavedInquiryHasPhysicalMotorcycle] = useState(false);
   const [editingInquiryId, setEditingInquiryId] = useState<string | null>(null);
+  const [linkMotorcycle, setLinkMotorcycle] = useState(false);
   const inquiriesQuery = useQuery({ queryKey: ['inquiries'], queryFn: inquiries.list });
   const financingCompaniesQuery = useQuery({ queryKey: ['financing-companies'], queryFn: financingCompanies.list });
   const installmentDurationsQuery = useQuery({ queryKey: ['installment-durations'], queryFn: installmentDurations.list });
-
-  useEffect(() => {
-    const state = (location.state as { selectedMotorcycle?: { id: string; model: string; brand?: { nameAr?: string; nameEn?: string } } } | null) ?? null;
-    const selectedMotorcycle = state?.selectedMotorcycle;
-    if (selectedMotorcycle?.id) {
-      setForm((current) => ({ ...current, motorcycleId: selectedMotorcycle.id }));
-      setShowForm(true);
-      setError(null);
-      return;
-    }
-    setShowForm(false);
-  }, [location.state]);
+  const motorcycleOptionsQuery = useQuery({
+    queryKey: ['inquiry-motorcycle-options', viewingBranchId, user?.branch?.id],
+    queryFn: inquiries.motorcycleOptions,
+    enabled: linkMotorcycle,
+  });
 
   const create = useMutation({
     mutationFn: ({ id, input }: { id: string | null; input: InquiryInput }) => id ? inquiries.update(id, input) : inquiries.create(input),
     onSuccess: (data) => {
       setSavedInquiryId(data.id);
+      setSavedInquiryHasPhysicalMotorcycle(Boolean(data.motorcycleId));
       setShowForm(false);
       void queryClient.invalidateQueries({ queryKey: ['inquiries'] }); 
     },
@@ -139,9 +139,11 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
 
   function resetForm() {
     setSavedInquiryId(null);
+    setSavedInquiryHasPhysicalMotorcycle(false);
     setEditingInquiryId(null);
+    setLinkMotorcycle(false);
     setSavedImageUrls({});
-    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', downPayment: '', motorcycleId: '', financingCompanyId: '', installmentDurationId: '' });
+    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', downPayment: '', requestedMotorcycle: null, financingCompanyId: '', installmentDurationId: '' });
     setDocumentImage(null);
     setIdCardFrontImage(null);
     setIdCardBackImage(null);
@@ -154,10 +156,32 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     setGuarantor2IdBackImage(null);
   }
 
+  useEffect(() => {
+    if (!openNewInquiry) return;
+
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: null,
+    });
+  }, [location.hash, location.pathname, location.search, navigate, openNewInquiry]);
+
   function editInquiry(inquiry: InquiryRecord) {
     setError(null);
     setSavedInquiryId(null);
+    setSavedInquiryHasPhysicalMotorcycle(false);
     setEditingInquiryId(inquiry.id);
+    const requestedMotorcycle = inquiry.requestedMotorcycle ?? (inquiry.motorcycle?.brand.id && inquiry.motorcycle.category?.id
+      ? {
+          brandId: inquiry.motorcycle.brand.id,
+          brandNameAr: inquiry.motorcycle.brand.nameAr,
+          brandNameEn: inquiry.motorcycle.brand.nameEn,
+          categoryId: inquiry.motorcycle.category.id,
+          categoryNameAr: inquiry.motorcycle.category.nameAr,
+          categoryNameEn: inquiry.motorcycle.category.nameEn,
+          model: inquiry.motorcycle.model,
+        }
+      : null);
+    setLinkMotorcycle(Boolean(requestedMotorcycle));
     setSavedImageUrls({
       documentImage: inquiry.documentImage,
       idCardFrontImage: inquiry.idCardFrontImage,
@@ -194,7 +218,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       secondGuarantorOccupationAddress: inquiry.secondGuarantorOccupationAddress ?? '',
       documentType: inquiry.documentType,
       downPayment: inquiry.downPayment == null ? '' : String(inquiry.downPayment),
-      motorcycleId: inquiry.motorcycleId ?? '',
+      requestedMotorcycle,
       financingCompanyId: inquiry.financingCompanyId ?? '',
       installmentDurationId: inquiry.installmentDurationId ?? '',
     });
@@ -206,11 +230,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   async function submit(event: FormEvent) {
     event.preventDefault(); 
     setError(null);
-
-    if (!form.motorcycleId) {
-      setError(isRtl ? 'يجب اختيار الدراجة أولاً.' : 'Please select the motorcycle first.');
-      return;
-    }
 
     if (!form.financingCompanyId) {
       setError(isRtl ? 'يجب اختيار شركة التمويل.' : 'Please select a financing company.');
@@ -252,6 +271,13 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
         id: editingInquiryId,
         input: {
         ...form, 
+        requestedMotorcycle: linkMotorcycle && form.requestedMotorcycle
+          ? {
+              brandId: form.requestedMotorcycle.brandId,
+              categoryId: form.requestedMotorcycle.categoryId,
+              model: form.requestedMotorcycle.model,
+            }
+          : null,
         downPayment: form.downPayment ? parseFloat(form.downPayment) : undefined,
         documentImage: hasSupportingDocument ? (documentImage || undefined) : undefined,
         idCardFrontImage: idCardFrontImage || undefined, 
@@ -520,21 +546,82 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
           <div className="inquiry-form-section inquiry-motorcycle-section">
             <div className="inquiry-section-heading">
               <span className="inquiry-section-number">04</span>
-              <div><h3>{isRtl ? 'الدراجة المطلوبة' : 'Requested motorcycle'}</h3><p>{isRtl ? 'اختياري: اربط الاستعلام بدراجة محددة.' : 'Optional: link the inquiry to a specific motorcycle.'}</p></div>
+                  <div><h3>{isRtl ? 'الدراجة المطلوبة' : 'Requested motorcycle'}</h3><p>{isRtl ? 'اختياري: اربط الاستعلام بنوع أو موديل متاح دون حجز وحدة بعينها.' : 'Optional: link the inquiry to an available motorcycle type or model without reserving a unit.'}</p></div>
             </div>
-            <MotorcycleSearchPOS 
-              lang={lang} 
-              branchId={viewingBranchId ?? undefined} 
-              onSelect={(mc) => setForm({ ...form, motorcycleId: mc.id })}
-              selectedMotorcycleId={form.motorcycleId}
-            />
-          </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={linkMotorcycle}
+                    onChange={event => {
+                      const checked = event.target.checked;
+                      setLinkMotorcycle(checked);
+                      if (!checked) setForm(current => ({ ...current, requestedMotorcycle: null }));
+                    }}
+                  />
+                  <span>{isRtl ? 'ربط الاستعلام بدراجة محددة' : 'Link inquiry to a specific motorcycle'}</span>
+                </label>
+                {linkMotorcycle && (
+                  <div>
+                    {motorcycleOptionsQuery.isLoading && <p>{isRtl ? 'جارٍ تحميل الأنواع والموديلات المتاحة...' : 'Loading available types and models...'}</p>}
+                    {motorcycleOptionsQuery.isError && (
+                      <div className="state-panel" role="alert">
+                        <span>{isRtl ? 'تعذر تحميل الأنواع والموديلات المتاحة.' : 'Could not load available motorcycle types and models.'}</span>
+                        <button type="button" className="secondary-action" onClick={() => void motorcycleOptionsQuery.refetch()}>
+                          {isRtl ? 'إعادة المحاولة' : 'Retry'}
+                        </button>
+                      </div>
+                    )}
+                    {motorcycleOptionsQuery.isSuccess && motorcycleOptionsQuery.data.length === 0 && (
+                      <div className="state-panel">
+                        {form.requestedMotorcycle
+                          ? (isRtl
+                              ? `الاختيار المحفوظ: ${form.requestedMotorcycle.brandNameAr} ${form.requestedMotorcycle.model} · ${form.requestedMotorcycle.categoryNameAr} (غير متاح حالياً)`
+                              : `Saved selection: ${form.requestedMotorcycle.brandNameEn} ${form.requestedMotorcycle.model} · ${form.requestedMotorcycle.categoryNameEn} (currently unavailable)`)
+                          : (isRtl ? 'لا توجد أنواع أو موديلات متاحة حالياً.' : 'No motorcycle types or models are currently available.')}
+                      </div>
+                    )}
+                    {motorcycleOptionsQuery.isSuccess && motorcycleOptionsQuery.data.length > 0 && (() => {
+                      const options = motorcycleOptionsQuery.data;
+                      const selected = form.requestedMotorcycle;
+                      const selectedKey = selected ? `${selected.brandId}:${selected.categoryId}:${selected.model}` : '';
+                      const availableSelection = options.find(option => `${option.brandId}:${option.categoryId}:${option.model}` === selectedKey);
+                      const hasSavedUnavailableSelection = selected && !availableSelection;
+                      const selectableOptions: InquiryMotorcycleOption[] = hasSavedUnavailableSelection
+                        ? [selected, ...options]
+                        : options;
+                      return (
+                        <label>
+                          <span>{isRtl ? 'النوع أو الموديل المتاح' : 'Available type or model'}</span>
+                          <select
+                            value={selectedKey}
+                            onChange={event => {
+                              const option = options.find(item => `${item.brandId}:${item.categoryId}:${item.model}` === event.target.value);
+                              setForm(current => ({ ...current, requestedMotorcycle: option ?? null }));
+                            }}
+                          >
+                            <option value="">{isRtl ? '-- بدون اختيار --' : '-- No selection --'}</option>
+                            {selectableOptions.map(option => {
+                              const key = `${option.brandId}:${option.categoryId}:${option.model}`;
+                              const label = `${isRtl ? option.brandNameAr : option.brandNameEn} · ${option.model} · ${isRtl ? option.categoryNameAr : option.categoryNameEn}`;
+                              return (
+                                <option key={key} value={key}>
+                                  {label}{hasSavedUnavailableSelection && key === selectedKey ? (isRtl ? ' (غير متاح حالياً)' : ' (currently unavailable)') : ''}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </label>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
 
-          <div className="inquiry-form-actions">
-            <span>{isRtl ? 'سيتم إرسال الطلب للمراجعة' : 'The request will be sent for review'}</span>
-            <button className="primary-action inquiry-submit" disabled={create.isPending}>
-              <CheckCircle2 size={18} />
-              {create.isPending ? (isRtl ? 'جاري الحفظ...' : 'Saving...') : (isRtl ? 'إرسال للمراجعة' : 'Send for Review')}
+              <div className="inquiry-form-actions">
+                <span>{isRtl ? 'حفظ الاستعلام' : 'Save inquiry'}</span>
+                <button className="primary-action inquiry-submit" disabled={create.isPending}>
+                  <CheckCircle2 size={18} />
+                  {create.isPending ? (isRtl ? 'جاري الحفظ...' : 'Saving...') : (isRtl ? 'حفظ الاستعلام' : 'Save inquiry')}
             </button>
           </div>
         </form>
@@ -542,9 +629,13 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
 
       {savedInquiryId && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', padding: '1.25rem 1.5rem', borderRadius: '16px', background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)', border: '1px solid #6ee7b7', marginBottom: '1.5rem' }}>
-          <span style={{ color: '#047857', fontWeight: 600, fontSize: '0.9rem' }}>{isRtl ? 'تم حفظ الاستعلام. أرسله للمراجعة عند اكتمال البيانات.' : 'Inquiry saved. Send it for review when the data is complete.'}</span>
+          <span style={{ color: '#047857', fontWeight: 600, fontSize: '0.9rem' }}>
+            {savedInquiryHasPhysicalMotorcycle
+              ? (isRtl ? 'تم حفظ الاستعلام. أرسله للمراجعة عند اكتمال البيانات.' : 'Inquiry saved. Send it for review when the data is complete.')
+              : (isRtl ? 'تم حفظ الاستعلام دون حجز وحدة. سيتم تخصيص وحدة فعلية عند الموافقة على طلب التقسيط.' : 'Inquiry saved without reserving a unit. A physical unit will be allocated when the installment request is approved.')}
+          </span>
           <button className="premium-action-btn" style={{ background: 'linear-gradient(135deg, #047857, #059669)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(5,150,105,0.25)' }} onClick={async () => { try { await inquiries.sendForReview(savedInquiryId); navigate('/installment-requests'); } catch (err) { setError(err instanceof Error ? err.message : 'Failed to send for review'); } }}>
-            <CheckCircle2 size={18} />             {editingInquiryId ? (isRtl ? 'حفظ التعديلات' : 'Save changes') : (isRtl ? 'إرسال للمراجعة' : 'Send for Review')}
+            <CheckCircle2 size={18} /> {editingInquiryId ? (isRtl ? 'حفظ التعديلات' : 'Save changes') : (isRtl ? 'إرسال للمراجعة' : 'Send for Review')}
           </button>
         </div>
       )}
@@ -591,10 +682,15 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
                   </small>
                 </div>
               </div>
-              {(inquiry.motorcycle || inquiry.downPayment != null) && (
+              {(inquiry.requestedMotorcycle || inquiry.motorcycle || inquiry.downPayment != null) && (
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid #f1f5f9', fontSize: '0.83rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                  {inquiry.motorcycle && (
-                    <div><strong style={{ color: 'var(--blue-dark)', marginInlineEnd: '0.3rem' }}>{isRtl ? 'الدراجة:' : 'Motorcycle:'}</strong>{isRtl ? inquiry.motorcycle.brand.nameAr : inquiry.motorcycle.brand.nameEn} {inquiry.motorcycle.model}</div>
+                  {(inquiry.requestedMotorcycle || inquiry.motorcycle) && (
+                    <div>
+                      <strong style={{ color: 'var(--blue-dark)', marginInlineEnd: '0.3rem' }}>{isRtl ? 'الدراجة:' : 'Motorcycle:'}</strong>
+                      {inquiry.requestedMotorcycle
+                        ? `${isRtl ? inquiry.requestedMotorcycle.brandNameAr : inquiry.requestedMotorcycle.brandNameEn} ${inquiry.requestedMotorcycle.model} · ${isRtl ? inquiry.requestedMotorcycle.categoryNameAr : inquiry.requestedMotorcycle.categoryNameEn}`
+                        : `${isRtl ? inquiry.motorcycle?.brand.nameAr : inquiry.motorcycle?.brand.nameEn} ${inquiry.motorcycle?.model}`}
+                    </div>
                   )}
                   {inquiry.downPayment != null && (
                     <div><strong style={{ color: 'var(--blue-dark)', marginInlineEnd: '0.3rem' }}>{isRtl ? 'الدفعة المقدمة:' : 'Down payment:'}</strong>{inquiry.downPayment.toLocaleString()} EGP</div>

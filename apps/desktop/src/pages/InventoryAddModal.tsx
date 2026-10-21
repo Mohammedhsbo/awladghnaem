@@ -11,8 +11,9 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
   const qc = useQueryClient();
 
   const [quantity, setQuantity] = useState(1);
+  const [chassisNumbers, setChassisNumbers] = useState<string[]>(['']);
   const [motorNumbers, setMotorNumbers] = useState<string[]>(['']);
-  const [engineNumbers, setEngineNumbers] = useState<string[]>(['']);
+  const [fuelTypes, setFuelTypes] = useState<Array<'PETROL' | 'ELECTRIC' | ''>>(['']);
   const [price, setPrice] = useState(0);
   const [costPrice, setCostPrice] = useState(0);
   const [model, setModel] = useState('');
@@ -48,15 +49,28 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
   const handleQuantityChange = (val: number) => {
     const q = Math.max(1, Math.min(50, val));
     setQuantity(q);
+    setChassisNumbers(current => {
+      const next = [...current];
+      while (next.length < q) next.push('');
+      return next.slice(0, q);
+    });
+    setFuelTypes(current => {
+      const next = [...current];
+      while (next.length < q) next.push('');
+      return next.slice(0, q);
+    });
     setMotorNumbers(current => {
       const next = [...current];
       while (next.length < q) next.push('');
       return next.slice(0, q);
     });
-    setEngineNumbers(current => {
+  };
+
+  const updateChassisNumber = (index: number, val: string) => {
+    setChassisNumbers(current => {
       const next = [...current];
-      while (next.length < q) next.push('');
-      return next.slice(0, q);
+      next[index] = val.toUpperCase();
+      return next;
     });
   };
 
@@ -68,25 +82,22 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
     });
   };
 
-  const updateEngineNumber = (index: number, val: string) => {
-    setEngineNumbers(current => {
-      const next = [...current];
-      next[index] = val.toUpperCase();
-      return next;
-    });
-  };
-
   const createMut = useMutation({
     mutationFn: async () => {
       // Create sequentially to handle unique errors gracefully
       for (let i = 0; i < quantity; i++) {
-        const vin = motorNumbers[i].trim();
-        if (!vin) throw new Error(isRtl ? 'يجب إدخال جميع أرقام الماتور' : 'All motor numbers are required');
+        const chassisNumber = chassisNumbers[i].trim();
+        const motorNumber = motorNumbers[i].trim();
+        const fuelType = fuelTypes[i];
+        if (!chassisNumber) throw new Error(isRtl ? 'يجب إدخال جميع أرقام الشاسيه.' : 'All chassis numbers are required.');
+        if (!motorNumber) throw new Error(isRtl ? 'رقم الموتور مطلوب.' : 'Motor number is required.');
+        if (!fuelType) throw new Error(isRtl ? 'يرجى اختيار نوع الوقود لكل دراجة.' : 'Select a fuel type for every motorcycle.');
         
         try {
           await motorcycles.create({
-            vin,
-            engineNumber: (engineNumbers[i] ?? '').trim() || undefined,
+            vin: chassisNumber,
+            engineNumber: motorNumber,
+            fuelType,
             model: model.trim(),
             year,
             price,
@@ -98,9 +109,8 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
             // Supplier is currently not part of the MotorcycleInput on backend, we could add it to notes if it existed, or just keep it simple for now
           });
         } catch (err: any) {
-          if (err.code === 'DUPLICATE_VIN' || err.message?.toLowerCase().includes('duplicate') || err.message?.toLowerCase().includes('unique') || err.message?.toLowerCase().includes('already exists')) {
-            throw new Error(isRtl ? `رقم الماتور ${vin} مسجل مسبقاً` : `Motor number ${vin} is already registered`);
-          }
+          if (err.code === 'VIN_EXISTS') throw new Error(isRtl ? `رقم الشاسيه ${chassisNumber} مسجل مسبقاً.` : `Chassis number ${chassisNumber} is already registered.`);
+          if (err.code === 'ENGINE_NUMBER_EXISTS') throw new Error(isRtl ? `رقم الموتور ${motorNumber} مسجل مسبقاً.` : `Motor number ${motorNumber} is already registered.`);
           throw err;
         }
       }
@@ -123,9 +133,26 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
       setError(isRtl ? 'يرجى إكمال جميع الحقول المطلوبة' : 'Please complete all required fields');
       return;
     }
-    const uniqueVins = new Set(motorNumbers.map(v => v.trim()).filter(Boolean));
-    if (uniqueVins.size !== motorNumbers.length) {
-      setError(isRtl ? 'أرقام الماتور يجب أن تكون فريدة' : 'Motor numbers must be unique');
+    if (chassisNumbers.some(value => !value.trim())) {
+      setError(isRtl ? 'يجب إدخال رقم الشاسيه لكل دراجة.' : 'A chassis number is required for every motorcycle.');
+      return;
+    }
+    if (motorNumbers.some(value => !value.trim())) {
+      setError(isRtl ? 'رقم الموتور مطلوب.' : 'Motor number is required.');
+      return;
+    }
+    if (fuelTypes.some(value => !value)) {
+      setError(isRtl ? 'يرجى اختيار نوع الوقود لكل دراجة.' : 'Select a fuel type for every motorcycle.');
+      return;
+    }
+    const uniqueChassisNumbers = new Set(chassisNumbers.map(value => value.trim().toUpperCase()));
+    if (uniqueChassisNumbers.size !== chassisNumbers.length) {
+      setError(isRtl ? 'أرقام الشاسيه يجب أن تكون فريدة.' : 'Chassis numbers must be unique.');
+      return;
+    }
+    const uniqueMotorNumbers = new Set(motorNumbers.map(value => value.trim().toUpperCase()));
+    if (uniqueMotorNumbers.size !== motorNumbers.length) {
+      setError(isRtl ? 'أرقام الموتور يجب أن تكون فريدة.' : 'Motor numbers must be unique.');
       return;
     }
     createMut.mutate();
@@ -216,24 +243,33 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
             </label>
 
             <div className="inventory-motor-numbers" style={{ marginTop: '1rem', display: 'grid', gap: '0.75rem' }}>
-              {motorNumbers.map((num, i) => (
+              {chassisNumbers.map((num, i) => (
                 <div key={i} style={{ display: 'grid', gap: '0.75rem' }}>
                   <label className="inventory-motor-number-field" style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-2)', fontSize: '0.72rem', fontWeight: 600 }}>
-                    <span>{isRtl ? `رقم الماتور #${i + 1} *` : `Motor Number #${i + 1} *`}</span>
+                    <span>{isRtl ? `رقم الشاسيه #${i + 1} *` : `Chassis number #${i + 1} *`}</span>
                     <input 
                       value={num} 
-                      onChange={e => updateMotorNumber(i, e.target.value)} 
-                      placeholder={isRtl ? 'أدخل رقم الماتور الفريد...' : 'Enter unique motor number...'}
+                      onChange={e => updateChassisNumber(i, e.target.value)} 
+                      placeholder={isRtl ? 'أدخل رقم الشاسيه...' : 'Enter chassis number...'}
                       required 
                       style={{ minHeight: '40px', padding: '0 0.7rem', border: '1px solid var(--pos-border)', borderRadius: '8px', background: 'var(--pos-card)', color: 'var(--text-1)' }}
                     />
                   </label>
                   <label className="inventory-motor-number-field" style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-2)', fontSize: '0.72rem', fontWeight: 600 }}>
-                    <span>{isRtl ? `رقم المحرك #${i + 1}` : `Engine Number #${i + 1}`}</span>
+                    <span>{isRtl ? `نوع الوقود #${i + 1} *` : `Fuel type #${i + 1} *`}</span>
+                    <select value={fuelTypes[i] ?? ''} onChange={event => setFuelTypes(current => current.map((value, index) => index === i ? event.target.value as 'PETROL' | 'ELECTRIC' | '' : value))} required style={{ minHeight: '40px', padding: '0 0.7rem', border: '1px solid var(--pos-border)', borderRadius: '8px', background: 'var(--pos-card)', color: 'var(--text-1)' }}>
+                      <option value="">{isRtl ? 'اختر نوع الوقود' : 'Select fuel type'}</option>
+                      <option value="PETROL">{isRtl ? 'بنزين' : 'Petrol'}</option>
+                      <option value="ELECTRIC">{isRtl ? 'كهرباء' : 'Electric'}</option>
+                    </select>
+                  </label>
+                  <label className="inventory-motor-number-field" style={{ display: 'grid', gap: '0.4rem', color: 'var(--text-2)', fontSize: '0.72rem', fontWeight: 600 }}>
+                    <span>{isRtl ? `رقم الموتور #${i + 1} *` : `Motor number #${i + 1} *`}</span>
                     <input 
-                      value={engineNumbers[i] ?? ''} 
-                      onChange={e => updateEngineNumber(i, e.target.value)} 
-                      placeholder={isRtl ? 'أدخل رقم المحرك...' : 'Enter engine number...'}
+                      value={motorNumbers[i] ?? ''} 
+                      onChange={e => updateMotorNumber(i, e.target.value)} 
+                      placeholder={isRtl ? 'أدخل رقم الموتور...' : 'Enter motor number...'}
+                      required
                       style={{ minHeight: '40px', padding: '0 0.7rem', border: '1px solid var(--pos-border)', borderRadius: '8px', background: 'var(--pos-card)', color: 'var(--text-1)' }}
                     />
                   </label>

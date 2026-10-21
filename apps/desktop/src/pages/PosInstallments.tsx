@@ -235,6 +235,7 @@ export default function PosInstallments({ lang }: { lang: Lang }) {
                         <span>
                           <Calendar size={13} />
                           {' '}{mcBrand} {plan.motorcycle.model}
+                          {' · '}{plan.motorcycle.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : plan.motorcycle.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}
                         </span>
                       )}
                     </div>

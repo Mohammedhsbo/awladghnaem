@@ -100,8 +100,16 @@ export default function InventoryDetail({ lang }: { lang: Lang }) {
                 <strong>{data.model}</strong>
               </span>
               <span>
-                {isRtl ? 'رقم الماتور (VIN)' : 'Motor Number (VIN)'}
+                {isRtl ? 'رقم الشاسيه' : 'Chassis number'}
                 <strong style={{ color: 'var(--blue)' }}>{data.vin}</strong>
+              </span>
+              <span>
+                {isRtl ? 'رقم الموتور' : 'Motor number'}
+                <strong style={{ color: 'var(--blue)' }}>{data.engineNumber || (isRtl ? 'غير متوفر' : 'Not available')}</strong>
+              </span>
+              <span>
+                {isRtl ? 'نوع الوقود' : 'Fuel type'}
+                <strong>{data.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : data.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}</strong>
               </span>
               <span>
                 {isRtl ? 'سنة الصنع' : 'Year'}

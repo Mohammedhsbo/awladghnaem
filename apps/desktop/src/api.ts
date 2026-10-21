@@ -266,7 +266,7 @@ export interface Purchase {
   items: PurchaseItem[];
 }
 
-export interface ReceiveItemInput { purchaseItemId: string; vin: string; }
+export interface ReceiveItemInput { purchaseItemId: string; vin: string; engineNumber: string; fuelType: MotorcycleFuelType; }
 
 export interface PurchaseCreateInput {
   supplierId: string;
@@ -423,10 +423,13 @@ export const customerInquiries = {
 };
 
 // ─── Motorcycles API (POS) ───────────────────────────────
+export type MotorcycleFuelType = 'PETROL' | 'ELECTRIC';
+
 export interface MotorcycleSearchResult {
   id: string;
   vin: string;
   engineNumber?: string | null;
+  fuelType?: MotorcycleFuelType | null;
   model: string;
   year: number;
   color?: string;
@@ -476,6 +479,7 @@ export const categories = {
 export interface MotorcycleInput {
   vin?: string;
   engineNumber?: string;
+  fuelType?: MotorcycleFuelType;
   model: string;
   year: number;
   color?: string;
@@ -487,7 +491,7 @@ export interface MotorcycleInput {
   images?: string[];
 }
 
-type MotorcycleCreatePayload = Required<Pick<MotorcycleInput, 'vin' | 'model' | 'year' | 'price' | 'costPrice' | 'brandId' | 'categoryId' | 'branchId'>> & Pick<MotorcycleInput, 'engineNumber' | 'images'>;
+type MotorcycleCreatePayload = Required<Pick<MotorcycleInput, 'vin' | 'engineNumber' | 'fuelType' | 'model' | 'year' | 'price' | 'costPrice' | 'brandId' | 'categoryId' | 'branchId'>> & Pick<MotorcycleInput, 'images'>;
 
 export const motorcycles = {
   search: (params: { search?: string; branchId?: string; status?: string; limit?: number }) => {
@@ -546,6 +550,7 @@ export interface OrderItem {
     model: string;
     year: number;
     color?: string;
+    fuelType?: MotorcycleFuelType | null;
     brand: { nameEn: string; nameAr: string };
     currentStatus: string;
   };
@@ -645,6 +650,7 @@ export interface ReservationListItem {
     id: string;
     vin: string;
     model: string;
+    fuelType?: MotorcycleFuelType | null;
     year: number;
     color?: string;
     brand: { nameEn: string; nameAr: string };
@@ -867,6 +873,7 @@ export interface POSReservation {
     id: string;
     vin: string;
     model: string;
+    fuelType?: MotorcycleFuelType | null;
     brand: string;
   };
   depositAmount: number;
@@ -1155,6 +1162,22 @@ export const financingCompanies = {
 // ─── New Inquiries (POS) ──────────────────────────────────
 export type InquiryDocumentType = 'EMPLOYEE' | 'PENSION' | 'COMMERCIAL_REGISTRY' | 'NEITHER';
 
+export interface InquiryMotorcycleOption {
+  brandId: string;
+  brandNameAr: string;
+  brandNameEn: string;
+  categoryId: string;
+  categoryNameAr: string;
+  categoryNameEn: string;
+  model: string;
+}
+
+export interface InquiryMotorcycleSelection {
+  brandId: string;
+  categoryId: string;
+  model: string;
+}
+
 export interface InquiryRecord {
   id: string;
   customerName: string;
@@ -1185,6 +1208,7 @@ export interface InquiryRecord {
   motorcycleId?: string;
   financingCompanyId?: string;
   installmentDurationId?: string;
+  requestedMotorcycle?: InquiryMotorcycleOption | null;
   motorcycle?: MotorcycleSearchResult;
   createdBy?: string;
   createdAt: string;
@@ -1208,6 +1232,7 @@ export interface InquiryInput {
   secondGuarantorOccupationAddress?: string;
   downPayment?: number;
   motorcycleId?: string;
+  requestedMotorcycle?: InquiryMotorcycleSelection | null;
   documentImage?: File;
   idCardFrontImage?: File;
   idCardBackImage?: File;
@@ -1254,6 +1279,7 @@ function inquiryFormData(input: InquiryInput) {
   }
   if (input.downPayment !== undefined) form.set('downPayment', String(input.downPayment));
   if (input.motorcycleId) form.set('motorcycleId', input.motorcycleId);
+  if (input.requestedMotorcycle !== undefined) form.set('requestedMotorcycle', JSON.stringify(input.requestedMotorcycle));
   if (input.financingCompanyId) form.set('financingCompanyId', input.financingCompanyId);
   if (input.installmentDurationId !== undefined) form.set('installmentDurationId', input.installmentDurationId);
 
@@ -1283,6 +1309,7 @@ export const installmentDurations = {
 
 export const inquiries = {
   list: () => apiFetch<InquiryRecord[]>('/inquiries'),
+  motorcycleOptions: () => apiFetch<InquiryMotorcycleOption[]>('/inquiries/motorcycle-options'),
   create: (input: InquiryInput) => apiFetch<InquiryRecord>('/inquiries', { method: 'POST', body: inquiryFormData(input) }),
   update: (id: string, input: InquiryInput) => apiFetch<InquiryRecord>(`/inquiries/${id}`, { method: 'PATCH', body: inquiryFormData(input) }),
   uploadElectricityLetter: (id: string, file: File) => {
@@ -1520,7 +1547,7 @@ export const attendance = {
 export interface InstallmentRequest {
   id: string;
   customerId: string;
-  motorcycleId: string;
+  motorcycleId: string | null;
   financingCompanyId: string;
   installmentDurationId: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -1549,11 +1576,23 @@ export interface InstallmentRequest {
   createdAt: string;
   updatedAt: string;
   customer?: any;
-  motorcycle?: any;
+  motorcycle?: {
+    id: string;
+    vin: string;
+    engineNumber?: string | null;
+    model: string;
+    year: number;
+    color?: string | null;
+    fuelType?: MotorcycleFuelType | null;
+    price: number;
+    status: string;
+    brand?: { id?: string; nameAr: string; nameEn: string };
+  } | null;
   financingCompany?: any;
   duration?: any;
   inquiry?: {
     id: string;
+    requestedMotorcycle?: InquiryMotorcycleOption | null;
     documentType?: InquiryDocumentType | null;
     address?: string | null;
     occupation?: string | null;
@@ -1577,7 +1616,19 @@ export const customerFinancing = {
     if (status) q.set('status', status);
     return apiFetch<InstallmentRequest[]>(`/admin/installment-requests?${q}`);
   },
-  reviewRequest: (id: string, data: { status: 'approved' | 'rejected'; rejectionReason?: string }) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  reviewRequest: (id: string, data: { status: 'approved' | 'rejected'; rejectionReason?: string; motorcycleId?: string }) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  motorcycleOptions: (id: string) => apiFetch<Array<{
+    id: string;
+    vin: string;
+    engineNumber: string | null;
+    model: string;
+    year: number;
+    color: string | null;
+    fuelType: MotorcycleFuelType | null;
+    price: number;
+    brand: { nameAr: string; nameEn: string };
+    category: { nameAr: string; nameEn: string };
+  }>>(`/admin/installment-requests/${id}/motorcycle-options`),
   getRequest: (id: string) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}`),
   updateRequest: (id: string, data: { buyerName?: string; buyerPhone?: string; financingCompanyId?: string; downPayment?: number }) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}/details`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteRequest: (id: string) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}`, { method: 'DELETE' }),
@@ -1593,7 +1644,7 @@ export interface CurrentOrderRow {
   orderId: string | null;
   motorcycleId: string;
   chassisNumber: string | null;
-  vin: string | null;
+  motorNumber: string | null;
   customerCode: string | null;
   buyerName: string | null;
   buyerAddress: string | null;
@@ -1602,10 +1653,37 @@ export interface CurrentOrderRow {
   motorcycleType: string | null;
   engineCapacity: string | null;
   color: string | null;
+  fuelType: MotorcycleFuelType | null;
+  electricityReply: string;
   notes: string | null;
+  cylinder: string | null;
+  trafficOffice: string | null;
+  governorate: string | null;
+  subDealer: string | null;
+  bodyStyle: string | null;
+  reviewLine: string | null;
   electricityLetterInquiryId: string | null;
   electricityLetterUploaded: boolean;
   paymentMethod: CurrentOrderPaymentMethod;
+}
+
+export type CurrentOrderManualFieldsInput = Partial<
+  Pick<CurrentOrderRow, 'cylinder' | 'trafficOffice' | 'governorate' | 'subDealer' | 'bodyStyle' | 'reviewLine' | 'notes'>
+>;
+
+export interface CurrentOrderManualData {
+  id: string;
+  desktopOrderItemId: string | null;
+  installmentRequestId: string | null;
+  cylinder: string | null;
+  trafficOffice: string | null;
+  governorate: string | null;
+  subDealer: string | null;
+  bodyStyle: string | null;
+  reviewLine: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CurrentOrdersResult {
@@ -1652,4 +1730,12 @@ export const currentOrders = {
       method: 'PATCH',
       body: JSON.stringify({ notes }),
     }),
+  updateManualFields: (
+    sourceType: CurrentOrderPaymentMethod,
+    rowId: string,
+    input: CurrentOrderManualFieldsInput,
+  ) => apiFetch<CurrentOrderManualData>(`/current-orders/${sourceType}/${rowId}/manual-fields`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  }),
 };

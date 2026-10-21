@@ -10,6 +10,12 @@ import { buildWhatsAppUrl } from '../../../../packages/shared-types/src/whatsapp
 type Lang = 'en' | 'ar';
 type Step = 'list' | 'method' | 'cash-details' | 'installment-details' | 'reserve-details' | 'confirm' | 'done' | 'done-installment' | 'done-reserve';
 
+function displayFuelType(fuelType: MotorcycleSearchResult['fuelType'], lang: Lang) {
+  if (fuelType === 'PETROL') return lang === 'ar' ? 'بنزين' : 'Petrol';
+  if (fuelType === 'ELECTRIC') return lang === 'ar' ? 'كهرباء' : 'Electric';
+  return lang === 'ar' ? 'غير معروف' : 'Unknown';
+}
+
 export default function Sales({ lang }: { lang: Lang }) {
   const isRtl = lang === 'ar';
   const qc = useQueryClient();
@@ -18,7 +24,7 @@ export default function Sales({ lang }: { lang: Lang }) {
   const user = getUser();
 
   /* ── state machine ─────────────────────────────── */
-  const [step, setStep] = useState<Step>('list');
+  const [step, setStep] = useState<Step>('method');
   const [selectedMc, setSelectedMc] = useState<MotorcycleSearchResult | null>(null);
   const [query, setQuery] = useState('');
 
@@ -115,7 +121,7 @@ export default function Sales({ lang }: { lang: Lang }) {
     `${v.toLocaleString(isRtl ? 'ar-EG' : 'en-EG', { maximumFractionDigits: 0 })} ${isRtl ? 'ج.م' : 'EGP'}`;
 
   function reset() {
-    setStep('list');
+    setStep('method');
     setSelectedMc(null);
     setCustomerName('');
     setCustomerPhone('');
@@ -136,7 +142,7 @@ export default function Sales({ lang }: { lang: Lang }) {
     if (!printWindow) return;
     const brand = isRtl ? selectedMc.brand.nameAr : selectedMc.brand.nameEn;
     const date = new Date(doneReservation.createdAt).toLocaleString(isRtl ? 'ar-EG' : 'en-GB');
-    printWindow.document.write(`<!doctype html><html lang="${isRtl ? 'ar' : 'en'}" dir="${isRtl ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${isRtl ? 'فاتورة حجز' : 'Reservation Invoice'}</title><style>body{font-family:Arial,sans-serif;color:#17243a;padding:32px}h1{color:#1e40af;border-bottom:3px solid #1e40af;padding-bottom:12px}table{width:100%;border-collapse:collapse;margin-top:24px}td{padding:12px;border-bottom:1px solid #dbe3ef}td:first-child{font-weight:bold;width:38%}</style></head><body><h1>${isRtl ? 'فاتورة حجز' : 'Reservation Invoice'}</h1><p>${isRtl ? 'رقم الحجز' : 'Reservation No.'}: ${doneReservation.number}</p><p>${isRtl ? 'التاريخ' : 'Date'}: ${date}</p><table><tr><td>${isRtl ? 'اسم العميل' : 'Customer'}</td><td>${customerName}</td></tr><tr><td>${isRtl ? 'الهاتف' : 'Phone'}</td><td>${customerPhone}</td></tr><tr><td>${isRtl ? 'الدراجة' : 'Motorcycle'}</td><td>${brand} ${selectedMc.model}</td></tr><tr><td>VIN</td><td>${selectedMc.vin}</td></tr><tr><td>${isRtl ? 'العربون' : 'Deposit'}</td><td>${money(Number(holdAmount))}</td></tr><tr><td>${isRtl ? 'السعر الإجمالي' : 'Total price'}</td><td>${money(selectedMc.price)}</td></tr></table></body></html>`);
+    printWindow.document.write(`<!doctype html><html lang="${isRtl ? 'ar' : 'en'}" dir="${isRtl ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${isRtl ? 'فاتورة حجز' : 'Reservation Invoice'}</title><style>body{font-family:Arial,sans-serif;color:#17243a;padding:32px}h1{color:#1e40af;border-bottom:3px solid #1e40af;padding-bottom:12px}table{width:100%;border-collapse:collapse;margin-top:24px}td{padding:12px;border-bottom:1px solid #dbe3ef}td:first-child{font-weight:bold;width:38%}</style></head><body><h1>${isRtl ? 'فاتورة حجز' : 'Reservation Invoice'}</h1><p>${isRtl ? 'رقم الحجز' : 'Reservation No.'}: ${doneReservation.number}</p><p>${isRtl ? 'التاريخ' : 'Date'}: ${date}</p><table><tr><td>${isRtl ? 'اسم العميل' : 'Customer'}</td><td>${customerName}</td></tr><tr><td>${isRtl ? 'الهاتف' : 'Phone'}</td><td>${customerPhone}</td></tr><tr><td>${isRtl ? 'الدراجة' : 'Motorcycle'}</td><td>${brand} ${selectedMc.model}</td></tr><tr><td>${isRtl ? 'رقم الشاسيه' : 'Chassis number'}</td><td>${selectedMc.vin}</td></tr><tr><td>${isRtl ? 'نوع الوقود' : 'Fuel type'}</td><td>${displayFuelType(selectedMc.fuelType, lang)}</td></tr><tr><td>${isRtl ? 'العربون' : 'Deposit'}</td><td>${money(Number(holdAmount))}</td></tr><tr><td>${isRtl ? 'السعر الإجمالي' : 'Total price'}</td><td>${money(selectedMc.price)}</td></tr></table></body></html>`);
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
@@ -200,8 +206,9 @@ export default function Sales({ lang }: { lang: Lang }) {
   <tbody>
     <tr><td>${isRtl ? 'الماركة' : 'Brand'}</td><td>${brandName ?? '-'}</td></tr>
     <tr><td>${isRtl ? 'الموديل' : 'Model'}</td><td>${mc?.model ?? '-'}</td></tr>
-    <tr><td>${isRtl ? 'رقم الهيكل (VIN)' : 'Chassis Number (VIN)'}</td><td>${mc?.vin ?? '-'}</td></tr>
-    <tr><td>${isRtl ? 'رقم المحرك' : 'Engine Number'}</td><td>${mc?.engineNumber ?? '-'}</td></tr>
+    <tr><td>${isRtl ? 'رقم الشاسيه' : 'Chassis number'}</td><td>${mc?.vin ?? '-'}</td></tr>
+    <tr><td>${isRtl ? 'رقم الموتور' : 'Motor number'}</td><td>${mc?.engineNumber ?? '-'}</td></tr>
+    <tr><td>${isRtl ? 'نوع الوقود' : 'Fuel type'}</td><td>${mc?.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : mc?.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}</td></tr>
     <tr><td>${isRtl ? 'الحالة' : 'Status'}</td><td>${mc?.status ?? '-'}</td></tr>
     <tr class="total-row"><td>${isRtl ? 'السعر الإجمالي' : 'Total Price'}</td><td>${money(Number(doneSale.salePrice))}</td></tr>
   </tbody>
@@ -270,7 +277,7 @@ export default function Sales({ lang }: { lang: Lang }) {
   }
 
   const data = list.data ?? [];
-  const bikes = data.filter(mc => mc.status !== 'sold');
+  const bikes = data.filter(mc => mc.status === 'available');
 
   /* ── render ────────────────────────────────────── */
   return (
@@ -280,16 +287,50 @@ export default function Sales({ lang }: { lang: Lang }) {
         <div>
           <span className="eyebrow">{isRtl ? 'إدارة البيع' : 'Sale management'}</span>
           <h1>{isRtl ? 'المبيعات' : 'Sales'}</h1>
-          <p>{isRtl ? 'اختر دراجة لبدء عملية البيع.' : 'Select a motorcycle to begin a sale.'}</p>
+          <p>{isRtl ? 'اختر طريقة البيع للمتابعة.' : 'Choose a sale method to continue.'}</p>
         </div>
-        {step !== 'list' && (
-          <button className="secondary-action" onClick={reset}>
-            {isRtl ? 'إلغاء / عودة' : 'Cancel / Back'}
+        {step !== 'method' && (
+          <button
+            className="secondary-action"
+            onClick={() => {
+              setError(null);
+              setSelectedMc(null);
+              setStep('method');
+            }}
+          >
+            {isRtl ? 'تغيير طريقة البيع' : 'Change sale method'}
           </button>
         )}
       </div>
 
-      {/* ── STEP 1: List ──────────────────────────────── */}
+      {/* ── STEP 1: Choose sale method ────────────────── */}
+      {step === 'method' && (
+        <div className="surface-panel sales-step-panel sale-method-panel" style={{ maxWidth: 540, margin: '0 auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <h2 style={{ margin: 0 }}>{isRtl ? 'اختر طريقة البيع' : 'Choose a sale method'}</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <button
+              type="button"
+              className="primary-action sale-method-option sale-method-cash"
+              style={{ padding: '1.25rem', fontSize: '1.1rem', flexDirection: 'column', gap: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={() => setStep('list')}
+            >
+              <h3>{isRtl ? 'كاش' : 'Cash'}</h3>
+              <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'اختيار دراجة متاحة للبيع' : 'Select an available motorcycle'}</p>
+            </button>
+            <button
+              type="button"
+              className="inventory-card clickable sale-method-option sale-method-installment"
+              style={{ textAlign: 'center', borderColor: 'var(--accent-primary)', padding: '2rem' }}
+              onClick={() => navigate('/inquiries', { state: { openNewInquiry: true } })}
+            >
+              <h3>{isRtl ? 'تقسيط' : 'Installment'}</h3>
+              <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'بدء استعلام تقسيط' : 'Start an installment inquiry'}</p>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── STEP 2: Select available motorcycle for cash ─ */}
       {step === 'list' && (
         <>
           <div className="toolbar">
@@ -298,7 +339,7 @@ export default function Sales({ lang }: { lang: Lang }) {
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder={isRtl ? 'ابحث بالموديل أو رقم الماتور...' : 'Search model or motor #...'}
+                placeholder={isRtl ? 'ابحث بالموديل أو رقم الموتور...' : 'Search model or motor number...'}
               />
             </div>
             <span className="result-count">{bikes.length} {isRtl ? 'وحدة' : 'units'}</span>
@@ -325,7 +366,7 @@ export default function Sales({ lang }: { lang: Lang }) {
                   <button
                     key={mc.id}
                     className="mc-card"
-                    onClick={() => { setSelectedMc(mc); setStep('method'); }}
+                    onClick={() => { setSelectedMc(mc); setStep('cash-details'); }}
                     dir={isRtl ? 'rtl' : 'ltr'}
                   >
                     {/* Card header — gradient image area */}
@@ -338,7 +379,8 @@ export default function Sales({ lang }: { lang: Lang }) {
                     <div className="mc-card-body">
                       <span className="mc-card-brand">{brand}</span>
                       <span className="mc-card-model">{mc.model}</span>
-                      <span className="mc-card-vin">{mc.vin}</span>
+                      <span className="mc-card-vin">{isRtl ? 'رقم الشاسيه:' : 'Chassis:'} {mc.vin}</span>
+                      <span>{isRtl ? 'نوع الوقود:' : 'Fuel type:'} {displayFuelType(mc.fuelType, lang)}</span>
                     </div>
 
                     {/* Card footer — price + hover CTA */}
@@ -358,51 +400,17 @@ export default function Sales({ lang }: { lang: Lang }) {
         </>
       )}
 
-      {/* ── STEP 2: Choose method ─────────────────────── */}
-      {step === 'method' && selectedMc && (
-        <div className="surface-panel sales-step-panel sale-method-panel" style={{ maxWidth: 480, margin: '0 auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <h2 style={{ margin: 0 }}>
-            {isRtl ? 'طريقة البيع' : 'Sale Method'} — {isRtl ? selectedMc.brand.nameAr : selectedMc.brand.nameEn} {selectedMc.model}
-          </h2>
-          <p style={{ color: 'var(--text-2)', margin: 0 }}>
-            {isRtl ? 'السعر: ' : 'Price: '}<strong>{selectedMc.price.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}</strong>
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <button
-              className="primary-action sale-method-option sale-method-cash"
-              style={{ padding: '1.25rem', fontSize: '1.1rem', flexDirection: 'column', gap: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onClick={() => setStep('cash-details')}
-            >
-              <h3>{isRtl ? 'نقدي (كاش)' : 'Cash Sale'}</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'الدفع نقداً أو بالفيزا' : 'Pay via cash or card'}</p>
-            </button>
-            <button
-              className="inventory-card clickable sale-method-option sale-method-installment"
-              style={{ textAlign: 'center', borderColor: 'var(--accent-primary)', padding: '2rem' }}
-              onClick={() => {
-                navigate('/inquiries', { state: { selectedMotorcycle: selectedMc } });
-              }}
-            >
-              <h3>{isRtl ? 'تقسيط' : 'Installment'}</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'طلب تقسيط عبر شركة تمويل' : 'Request via financing company'}</p>
-            </button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', marginTop: '1rem' }}>
-            <button
-              className="inventory-card clickable sale-method-option sale-method-reserve"
-              style={{ textAlign: 'center', borderColor: 'var(--text-3)', padding: '1rem' }}
-              onClick={() => setStep('reserve-details')}
-            >
-              <h3 style={{ margin: 0, fontSize: '1rem' }}>{isRtl ? 'حجز هذه الدراجة' : 'Reserve this motorcycle'}</h3>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── STEP 3: Cash Details ─────────────────────── */}
       {step === 'cash-details' && selectedMc && (
         <form className="surface-panel sales-step-panel sales-cash-panel" onSubmit={e => { e.preventDefault(); if (!customerIdFile) { setError(isRtl ? 'يجب رفع صورة الهوية أولاً.' : 'Please upload the ID photo first.'); return; } setStep('confirm'); setError(null); }} style={{ maxWidth: 540, margin: '0 auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <h2 style={{ margin: 0 }}>{isRtl ? 'بيانات العميل' : 'Customer Details'}</h2>
+          <p style={{ color: 'var(--text-2)', margin: 0 }}>
+            {isRtl ? 'الدراجة: ' : 'Motorcycle: '}<strong>{isRtl ? selectedMc.brand.nameAr : selectedMc.brand.nameEn} {selectedMc.model}</strong>
+            {' · '}{isRtl ? 'نوع الوقود: ' : 'Fuel type: '}{displayFuelType(selectedMc.fuelType, lang)}
+          </p>
+          <button type="button" className="secondary-action" onClick={() => setStep('reserve-details')}>
+            {isRtl ? 'حجز هذه الدراجة بدلاً من بيعها' : 'Reserve this motorcycle instead'}
+          </button>
           {error && <div className="state-panel" role="alert" style={{ color: 'var(--red-light)' }}>{error}</div>}
           <label className="sales-upload-field">
             {isRtl ? 'اسم العميل *' : 'Customer Name *'}
@@ -479,7 +487,8 @@ export default function Sales({ lang }: { lang: Lang }) {
           
           <div style={{ background: 'var(--bg-2)', borderRadius: '0.5rem', padding: '1rem' }}>
             <p style={{ margin: '0 0 4px', fontWeight: 700 }}>{isRtl ? selectedMc.brand.nameAr : selectedMc.brand.nameEn} {selectedMc.model}</p>
-            <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.875rem' }}>{selectedMc.vin}</p>
+            <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.875rem' }}>{isRtl ? 'رقم الشاسيه:' : 'Chassis:'} {selectedMc.vin}</p>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-2)', fontSize: '0.875rem' }}>{isRtl ? 'نوع الوقود:' : 'Fuel type:'} {displayFuelType(selectedMc.fuelType, lang)}</p>
           </div>
 
           <label>
@@ -517,7 +526,8 @@ export default function Sales({ lang }: { lang: Lang }) {
           {/* Motorcycle summary */}
           <div style={{ background: 'var(--bg-2)', borderRadius: '0.5rem', padding: '1rem' }}>
             <p style={{ margin: '0 0 4px', fontWeight: 700 }}>{isRtl ? selectedMc.brand.nameAr : selectedMc.brand.nameEn} {selectedMc.model}</p>
-            <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.875rem' }}>{selectedMc.vin}</p>
+            <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.875rem' }}>{isRtl ? 'رقم الشاسيه:' : 'Chassis:'} {selectedMc.vin}</p>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-2)', fontSize: '0.875rem' }}>{isRtl ? 'نوع الوقود:' : 'Fuel type:'} {displayFuelType(selectedMc.fuelType, lang)}</p>
             <p style={{ margin: '8px 0 0', fontWeight: 700, color: 'var(--accent-primary)', fontSize: '1.1rem' }}>
               {money(selectedMc.price)}
             </p>

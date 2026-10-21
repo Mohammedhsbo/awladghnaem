@@ -77,8 +77,8 @@ export default function MotorcycleSearchPOS({
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           {isRtl
-            ? 'البحث عن دراجة نارية (رقم الهيكل، الموديل، العلامة التجارية)'
-            : 'Search Motorcycle (VIN, Model, Brand)'}
+            ? 'البحث عن دراجة نارية (رقم الشاسيه، الموديل، العلامة التجارية)'
+            : 'Search Motorcycle (Chassis number, Model, Brand)'}
         </label>
         <input
           ref={searchInputRef}
@@ -89,7 +89,7 @@ export default function MotorcycleSearchPOS({
           placeholder={
             isRtl
               ? 'ابحث بالرقم التسلسلي أو الموديل...'
-              : 'Search by VIN or model...'
+              : 'Search by chassis number or model...'
           }
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
@@ -164,10 +164,13 @@ export default function MotorcycleSearchPOS({
                   {isRtl ? moto.brand.nameAr : moto.brand.nameEn}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {isRtl ? 'الهيكل' : 'VIN'}: {moto.vin}
+                  {isRtl ? 'رقم الشاسيه' : 'Chassis number'}: {moto.vin}
                 </div>
                 <div className="text-xs text-gray-500">
                   {moto.year} • {moto.color}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {isRtl ? 'نوع الوقود' : 'Fuel type'}: {moto.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : moto.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}
                 </div>
                 <div className="mt-2 text-lg font-bold text-blue-600">
                   {moto.price.toLocaleString()} {isRtl ? 'ريال' : 'EGP'}

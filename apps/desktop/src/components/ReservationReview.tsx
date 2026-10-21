@@ -17,7 +17,7 @@ const T = {
     brand: 'Brand',
     model: 'Model',
     year: 'Year',
-    vin: 'VIN',
+    vin: 'Chassis number',
     color: 'Color',
     price: 'Price',
     depositAmount: 'Deposit Amount',
@@ -42,7 +42,7 @@ const T = {
     brand: 'العلامة التجارية',
     model: 'الموديل',
     year: 'السنة',
-    vin: 'رقم الهيكل',
+    vin: 'رقم الشاسيه',
     color: 'اللون',
     price: 'السعر',
     depositAmount: 'مبلغ العربون',
@@ -213,6 +213,12 @@ export default function ReservationReview({
                   {t.vin}
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{motorcycle.vin}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginBottom: '0.25rem' }}>
+                  {lang === 'ar' ? 'نوع الوقود' : 'Fuel type'}
+                </div>
+                <div>{motorcycle.fuelType === 'PETROL' ? (lang === 'ar' ? 'بنزين' : 'Petrol') : motorcycle.fuelType === 'ELECTRIC' ? (lang === 'ar' ? 'كهرباء' : 'Electric') : (lang === 'ar' ? 'غير معروف' : 'Unknown')}</div>
               </div>
             </div>
           </div>
