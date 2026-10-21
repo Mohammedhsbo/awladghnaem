@@ -39,7 +39,13 @@ export interface InstallmentRequestPrintData {
   createdAt: string;
   status: string;
   buyer: { name: string; phone: string; email?: string | null; address?: string | null; occupation?: string | null };
-  guarantor: { name: string; phone: string; address?: string | null };
+  guarantors: Array<{
+    name?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    occupation?: string | null;
+    occupationAddress?: string | null;
+  }>;
   motorcycle: { brand: string; model: string; vin?: string | null; year?: number | null; color?: string | null; price?: number | null };
   financing: { company: string; downPayment?: number | null; installmentAmount?: number | null; monthlyInstallment?: number | null; durationMonths?: number | null };
   documentType?: string | null;
@@ -65,7 +71,7 @@ export function formatInstallmentRequestHTML(data: InstallmentRequestPrintData, 
   <div class="section"><div class="title">${label('Buyer Information', 'بيانات المشتري')}</div>${row(label('Name', 'الاسم'), data.buyer.name)}${row(label('Phone', 'الهاتف'), data.buyer.phone)}${row(label('Email', 'البريد الإلكتروني'), data.buyer.email)}${row(label('Address', 'العنوان'), data.buyer.address)}${row(label('Occupation', 'المهنة'), data.buyer.occupation)}</div>
   <div class="section"><div class="title">${label('Motorcycle Details', 'بيانات الدراجة')}</div>${row(label('Brand', 'الماركة'), data.motorcycle.brand)}${row(label('Model', 'الموديل'), data.motorcycle.model)}${row('VIN', data.motorcycle.vin)}${row(label('Year', 'السنة'), data.motorcycle.year)}${row(label('Color', 'اللون'), data.motorcycle.color)}${row(label('Motorcycle Price', 'سعر الدراجة'), amount(data.motorcycle.price))}</div>
   <div class="section"><div class="title">${label('Financing Details', 'تفاصيل التقسيط')}</div>${row(label('Document Type', 'نوع المستند'), data.documentType === 'EMPLOYEE' ? label('Employee', 'موظف') : data.documentType === 'PENSION' ? label('Pension', 'معاش') : data.documentType === 'COMMERCIAL_REGISTRY' ? label('Commercial registry', 'سجل تجاري') : data.documentType === 'NEITHER' ? label('Guarantors / no supporting document', 'ضامنين / بدون مستند داعم') : '-')} ${row(label('Financing Company', 'شركة التمويل'), data.financing.company)}${row(label('Down Payment', 'الدفعة المقدمة'), amount(data.financing.downPayment))}${row(label('Installment Amount', 'مبلغ التقسيط'), amount(data.financing.installmentAmount ?? data.financing.monthlyInstallment))}${row(label('Duration', 'مدة التقسيط'), data.financing.durationMonths == null ? '-' : `${data.financing.durationMonths} ${label('months', 'شهر')}`)}${row(label('Status', 'الحالة'), data.status)}</div>
-  <div class="section"><div class="title">${label('Guarantor Information', 'بيانات الضامن')}</div>${row(label('Name', 'الاسم'), data.guarantor.name)}${row(label('Phone', 'الهاتف'), data.guarantor.phone)}${row(label('Address', 'العنوان'), data.guarantor.address)}</div>
+  <div class="section"><div class="title">${label('Guarantor Information', 'بيانات الضامنين')}</div>${data.guarantors.map((guarantor, index) => `${row(label(index === 0 ? 'First guarantor' : 'Second guarantor', index === 0 ? 'الضامن الأول' : 'الضامن الثاني'), guarantor.name)}${row(label('Phone', 'الهاتف'), guarantor.phone)}${row(label('Address', 'العنوان'), guarantor.address)}${row(label('Occupation', 'المهنة'), guarantor.occupation)}${row(label('Occupation Address', 'عنوان المهنة'), guarantor.occupationAddress ?? '')}`).join('')}</div>
   <div class="section"><div class="title">${label('Documents', 'المستندات')}</div><div class="documents">${documents}</div></div><div class="signature">${label('Customer Signature', 'توقيع العميل')}</div><div class="footer">${label('Thank you for your business', 'شكراً لتعاملكم معنا')}</div><div class="no-print"><button onclick="window.print()">${label('Print', 'طباعة')}</button></div></body></html>`;
 }
 

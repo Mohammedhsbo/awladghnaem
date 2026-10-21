@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
-import { Download, FileImage, Plus, PenTool, CheckCircle2 } from 'lucide-react';
+import { FileImage, Plus, PenTool, CheckCircle2 } from 'lucide-react';
 import { inquiries, financingCompanies, installmentDurations, type InquiryInput, type InquiryDocumentType, type InquiryRecord, pos, getUser } from '../api';
 import { DataList, DataTableState } from '../components/DataTable';
 import MotorcycleSearchPOS from '../components/MotorcycleSearchPOS';
@@ -62,10 +62,12 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     firstGuarantorPhone: string;
     firstGuarantorAddress: string;
     firstGuarantorOccupation: string;
+    firstGuarantorOccupationAddress: string;
     secondGuarantorName: string;
     secondGuarantorPhone: string;
     secondGuarantorAddress: string;
     secondGuarantorOccupation: string;
+    secondGuarantorOccupationAddress: string;
     documentType: InquiryDocumentType;
     downPayment: string;
     motorcycleId: string;
@@ -80,10 +82,12 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     firstGuarantorPhone: '',
     firstGuarantorAddress: '',
     firstGuarantorOccupation: '',
+    firstGuarantorOccupationAddress: '',
     secondGuarantorName: '',
     secondGuarantorPhone: '',
     secondGuarantorAddress: '',
     secondGuarantorOccupation: '',
+    secondGuarantorOccupationAddress: '',
     documentType: 'EMPLOYEE',
     downPayment: '',
     motorcycleId: '',
@@ -92,8 +96,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   });
 
   const [documentImage, setDocumentImage] = useState<File | null>(null);
-  const [electricityLetter, setElectricityLetter] = useState<File | null>(null);
-  const [savedElectricityLetter, setSavedElectricityLetter] = useState(false);
   const [idCardFrontImage, setIdCardFrontImage] = useState<File | null>(null);
   const [idCardBackImage, setIdCardBackImage] = useState<File | null>(null);
   const [guarantorIdFrontImage, setGuarantorIdFrontImage] = useState<File | null>(null);
@@ -139,10 +141,8 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     setSavedInquiryId(null);
     setEditingInquiryId(null);
     setSavedImageUrls({});
-    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', documentType: 'EMPLOYEE', downPayment: '', motorcycleId: '', financingCompanyId: '', installmentDurationId: '' });
+    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', downPayment: '', motorcycleId: '', financingCompanyId: '', installmentDurationId: '' });
     setDocumentImage(null);
-    setElectricityLetter(null);
-    setSavedElectricityLetter(false);
     setIdCardFrontImage(null);
     setIdCardBackImage(null);
     setGuarantorIdFrontImage(null);
@@ -167,8 +167,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       guarantor2IdFrontImage: inquiry.guarantor2IdFrontImage,
       guarantor2IdBackImage: inquiry.guarantor2IdBackImage,
     });
-    setElectricityLetter(null);
-    setSavedElectricityLetter(inquiry.electricityLetterUploaded);
     setDocumentImage(null);
     setIdCardFrontImage(null);
     setIdCardBackImage(null);
@@ -188,10 +186,12 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       firstGuarantorPhone: inquiry.firstGuarantorPhone ?? '',
       firstGuarantorAddress: inquiry.firstGuarantorAddress ?? '',
       firstGuarantorOccupation: inquiry.firstGuarantorOccupation ?? '',
+      firstGuarantorOccupationAddress: inquiry.firstGuarantorOccupationAddress ?? '',
       secondGuarantorName: inquiry.secondGuarantorName ?? '',
       secondGuarantorPhone: inquiry.secondGuarantorPhone ?? '',
       secondGuarantorAddress: inquiry.secondGuarantorAddress ?? '',
       secondGuarantorOccupation: inquiry.secondGuarantorOccupation ?? '',
+      secondGuarantorOccupationAddress: inquiry.secondGuarantorOccupationAddress ?? '',
       documentType: inquiry.documentType,
       downPayment: inquiry.downPayment == null ? '' : String(inquiry.downPayment),
       motorcycleId: inquiry.motorcycleId ?? '',
@@ -202,20 +202,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   }
 
   const hasSupportingDocument = form.documentType !== 'NEITHER';
-
-  async function downloadElectricityLetter(inquiryId: string) {
-    try {
-      const file = await inquiries.downloadElectricityLetter(inquiryId);
-      const url = URL.createObjectURL(file);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = 'electricity-letter';
-      anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : (isRtl ? 'تعذر تنزيل جواب الكهرباء.' : 'Could not download the Electricity Letter.'));
-    }
-  }
 
   async function submit(event: FormEvent) {
     event.preventDefault(); 
@@ -228,16 +214,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
 
     if (!form.financingCompanyId) {
       setError(isRtl ? 'يجب اختيار شركة التمويل.' : 'Please select a financing company.');
-      return;
-    }
-
-    if (!form.installmentDurationId) {
-      setError(isRtl ? 'يجب اختيار مدة التقسيط.' : 'Please select an installment duration.');
-      return;
-    }
-
-    if (!electricityLetter && !savedElectricityLetter) {
-      setError(isRtl ? 'يجب إرفاق جواب الكهرباء.' : 'The Electricity Letter document is required.');
       return;
     }
 
@@ -278,7 +254,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
         ...form, 
         downPayment: form.downPayment ? parseFloat(form.downPayment) : undefined,
         documentImage: hasSupportingDocument ? (documentImage || undefined) : undefined,
-        electricityLetter: electricityLetter || undefined,
         idCardFrontImage: idCardFrontImage || undefined, 
         idCardBackImage: idCardBackImage || undefined,
         guarantorIdFrontImage: guarantor1IdFrontImage || guarantorIdFrontImage || undefined,
@@ -370,8 +345,8 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
               </select>
             </label>
             <label>
-              <span>{isRtl ? 'مدة التقسيط *' : 'Installment Duration *'}</span>
-              <select value={form.installmentDurationId} onChange={e => setForm({ ...form, installmentDurationId: e.target.value })} required>
+              <span>{isRtl ? 'مدة التقسيط (اختياري)' : 'Installment Duration (Optional)'}</span>
+              <select value={form.installmentDurationId} onChange={e => setForm({ ...form, installmentDurationId: e.target.value })}>
                 <option value="">{isRtl ? '-- اختر المدة --' : '-- Select duration --'}</option>
                 {installmentDurationsQuery.data?.map(duration => (
                   <option key={duration.id} value={duration.id}>{duration.months} {isRtl ? 'شهر' : 'months'}</option>
@@ -411,23 +386,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
             </div>
           <div className="inquiry-upload-panel">
             <div className="form-grid inquiry-upload-grid">
-              <label>
-                <FileImage size={16} /> {isRtl ? 'جواب كهرباء' : 'Electricity Letter'} *
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  required={!savedElectricityLetter && !electricityLetter}
-                  onChange={event => setElectricityLetter(event.target.files?.[0] ?? null)}
-                />
-                {savedElectricityLetter && editingInquiryId && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                    {isRtl ? 'تم رفع المستند' : 'Document uploaded'}
-                    <button type="button" className="secondary-action" onClick={() => void downloadElectricityLetter(editingInquiryId)}>
-                      <Download size={14} /> {isRtl ? 'تنزيل' : 'Download'}
-                    </button>
-                  </span>
-                )}
-              </label>
               {form.documentType === 'EMPLOYEE' && (
                 <>
                   <label>
@@ -503,11 +461,13 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
                     <label><span>{isRtl ? 'رقم الهاتف' : 'Phone Number'}</span><input value={form.firstGuarantorPhone} onChange={event => setForm({ ...form, firstGuarantorPhone: event.target.value })} /></label>
                     <label><span>{isRtl ? 'العنوان' : 'Address'}</span><input value={form.firstGuarantorAddress} onChange={event => setForm({ ...form, firstGuarantorAddress: event.target.value })} /></label>
                     <label><span>{isRtl ? 'المهنة' : 'Occupation'}</span><input value={form.firstGuarantorOccupation} onChange={event => setForm({ ...form, firstGuarantorOccupation: event.target.value })} /></label>
+                    <label><span>{isRtl ? 'عنوان المهنة' : 'Occupation Address'}</span><input value={form.firstGuarantorOccupationAddress} onChange={event => setForm({ ...form, firstGuarantorOccupationAddress: event.target.value })} /></label>
                     <h4 style={{ gridColumn: '1 / -1', margin: 0 }}>{isRtl ? 'الضامن الثاني' : 'Second guarantor'}</h4>
                     <label><span>{isRtl ? 'الاسم الكامل' : 'Full Name'}</span><input value={form.secondGuarantorName} onChange={event => setForm({ ...form, secondGuarantorName: event.target.value })} /></label>
                     <label><span>{isRtl ? 'رقم الهاتف' : 'Phone Number'}</span><input value={form.secondGuarantorPhone} onChange={event => setForm({ ...form, secondGuarantorPhone: event.target.value })} /></label>
                     <label><span>{isRtl ? 'العنوان' : 'Address'}</span><input value={form.secondGuarantorAddress} onChange={event => setForm({ ...form, secondGuarantorAddress: event.target.value })} /></label>
                     <label><span>{isRtl ? 'المهنة' : 'Occupation'}</span><input value={form.secondGuarantorOccupation} onChange={event => setForm({ ...form, secondGuarantorOccupation: event.target.value })} /></label>
+                    <label><span>{isRtl ? 'عنوان المهنة' : 'Occupation Address'}</span><input value={form.secondGuarantorOccupationAddress} onChange={event => setForm({ ...form, secondGuarantorOccupationAddress: event.target.value })} /></label>
                   </div>
                   <InquiryImageUpload
                     label={isRtl ? 'بطاقة المشتري - الوجه الأمامي' : 'Buyer ID Card — Front'}

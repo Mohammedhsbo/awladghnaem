@@ -1166,10 +1166,12 @@ export interface InquiryRecord {
   firstGuarantorPhone?: string | null;
   firstGuarantorAddress?: string | null;
   firstGuarantorOccupation?: string | null;
+  firstGuarantorOccupationAddress?: string | null;
   secondGuarantorName?: string | null;
   secondGuarantorPhone?: string | null;
   secondGuarantorAddress?: string | null;
   secondGuarantorOccupation?: string | null;
+  secondGuarantorOccupationAddress?: string | null;
   documentImage?: string;
   idCardFrontImage?: string;
   idCardBackImage?: string;
@@ -1198,14 +1200,15 @@ export interface InquiryInput {
   firstGuarantorPhone?: string;
   firstGuarantorAddress?: string;
   firstGuarantorOccupation?: string;
+  firstGuarantorOccupationAddress?: string;
   secondGuarantorName?: string;
   secondGuarantorPhone?: string;
   secondGuarantorAddress?: string;
   secondGuarantorOccupation?: string;
+  secondGuarantorOccupationAddress?: string;
   downPayment?: number;
   motorcycleId?: string;
   documentImage?: File;
-  electricityLetter?: File;
   idCardFrontImage?: File;
   idCardBackImage?: File;
   guarantorIdFrontImage?: File;
@@ -1239,10 +1242,12 @@ function inquiryFormData(input: InquiryInput) {
     'firstGuarantorPhone',
     'firstGuarantorAddress',
     'firstGuarantorOccupation',
+    'firstGuarantorOccupationAddress',
     'secondGuarantorName',
     'secondGuarantorPhone',
     'secondGuarantorAddress',
     'secondGuarantorOccupation',
+    'secondGuarantorOccupationAddress',
   ] as const) {
     const value = input[field];
     if (value !== undefined) form.set(field, value);
@@ -1250,11 +1255,10 @@ function inquiryFormData(input: InquiryInput) {
   if (input.downPayment !== undefined) form.set('downPayment', String(input.downPayment));
   if (input.motorcycleId) form.set('motorcycleId', input.motorcycleId);
   if (input.financingCompanyId) form.set('financingCompanyId', input.financingCompanyId);
-  if (input.installmentDurationId) form.set('installmentDurationId', input.installmentDurationId);
+  if (input.installmentDurationId !== undefined) form.set('installmentDurationId', input.installmentDurationId);
 
   for (const field of [
     'documentImage',
-    'electricityLetter',
     'idCardFrontImage',
     'idCardBackImage',
     'guarantorIdFrontImage',
@@ -1553,6 +1557,16 @@ export interface InstallmentRequest {
     documentType?: InquiryDocumentType | null;
     address?: string | null;
     occupation?: string | null;
+    firstGuarantorName?: string | null;
+    firstGuarantorPhone?: string | null;
+    firstGuarantorAddress?: string | null;
+    firstGuarantorOccupation?: string | null;
+    firstGuarantorOccupationAddress?: string | null;
+    secondGuarantorName?: string | null;
+    secondGuarantorPhone?: string | null;
+    secondGuarantorAddress?: string | null;
+    secondGuarantorOccupation?: string | null;
+    secondGuarantorOccupationAddress?: string | null;
     electricityLetterUploaded: boolean;
   } | null;
 }

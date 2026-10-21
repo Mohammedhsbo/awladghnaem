@@ -98,7 +98,24 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
       createdAt: request.createdAt,
       status: request.status,
       buyer: { name: request.buyerName, phone: request.buyerPhone, email: request.buyerEmail, address: request.buyerAddress || request.inquiry?.address, occupation: request.buyerOccupation || request.inquiry?.occupation },
-      guarantor: { name: request.guarantorName, phone: request.guarantorPhone, address: request.guarantorAddress },
+      guarantors: request.inquiry ? [
+        {
+          name: request.inquiry.firstGuarantorName || request.guarantorName,
+          phone: request.inquiry.firstGuarantorPhone || request.guarantorPhone,
+          address: request.inquiry.firstGuarantorAddress || request.guarantorAddress,
+          occupation: request.inquiry.firstGuarantorOccupation,
+          occupationAddress: request.inquiry.firstGuarantorOccupationAddress,
+        },
+        {
+          name: request.inquiry.secondGuarantorName,
+          phone: request.inquiry.secondGuarantorPhone,
+          address: request.inquiry.secondGuarantorAddress,
+          occupation: request.inquiry.secondGuarantorOccupation,
+          occupationAddress: request.inquiry.secondGuarantorOccupationAddress,
+        },
+      ].filter(guarantor => Boolean(guarantor.name || guarantor.phone || guarantor.address || guarantor.occupation || guarantor.occupationAddress)) : [
+        { name: request.guarantorName, phone: request.guarantorPhone, address: request.guarantorAddress },
+      ],
       motorcycle: { brand: motorcycle?.brand?.nameAr ?? motorcycle?.brand?.nameEn ?? '-', model: motorcycle?.model ?? '-', vin: motorcycle?.vin, year: motorcycle?.year, color: motorcycle?.color, price: request.motorcyclePrice },
       financing: { company: request.financingCompany?.name ?? '-', downPayment: request.downPayment, installmentAmount: request.installmentAmount, monthlyInstallment: request.monthlyInstallment, durationMonths: request.durationMonths ?? request.duration?.months },
       documentType: request.inquiry?.documentType,
@@ -224,6 +241,46 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="premium-stat-card" style={{ marginBottom: '1.25rem' }}>
+        <h3><User size={18} /> {isRtl ? 'بيانات الضامنين' : 'Guarantor Information'}</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem' }}>
+          {[
+            {
+              title: isRtl ? 'الضامن الأول' : 'First guarantor',
+              name: request.inquiry?.firstGuarantorName || request.guarantorName || '',
+              phone: request.inquiry?.firstGuarantorPhone || request.guarantorPhone || '',
+              address: request.inquiry?.firstGuarantorAddress || request.guarantorAddress || '',
+              occupation: request.inquiry?.firstGuarantorOccupation || '',
+              occupationAddress: request.inquiry?.firstGuarantorOccupationAddress ?? '',
+            },
+            {
+              title: isRtl ? 'الضامن الثاني' : 'Second guarantor',
+              name: request.inquiry?.secondGuarantorName ?? '',
+              phone: request.inquiry?.secondGuarantorPhone ?? '',
+              address: request.inquiry?.secondGuarantorAddress ?? '',
+              occupation: request.inquiry?.secondGuarantorOccupation ?? '',
+              occupationAddress: request.inquiry?.secondGuarantorOccupationAddress ?? '',
+            },
+          ].map(guarantor => (
+            <div key={guarantor.title}>
+              <h4 style={{ margin: '0 0 0.4rem' }}>{guarantor.title}</h4>
+              {[
+                [isRtl ? 'الاسم' : 'Name', guarantor.name],
+                [isRtl ? 'رقم الهاتف' : 'Phone number', guarantor.phone],
+                [isRtl ? 'العنوان' : 'Address', guarantor.address],
+                [isRtl ? 'المهنة' : 'Occupation', guarantor.occupation],
+                [isRtl ? 'عنوان المهنة' : 'Occupation Address', guarantor.occupationAddress],
+              ].map(([label, value]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem', padding: '0.55rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{label}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', wordBreak: 'break-word', textAlign: isRtl ? 'left' : 'right' }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
 
