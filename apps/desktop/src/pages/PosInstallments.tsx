@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, ChevronDown, ChevronUp, CheckCircle2, Clock, AlertCircle, Search, Plus } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { Calendar, ChevronDown, ChevronUp, CheckCircle2, Clock, AlertCircle, Search, Plus, Bike, Download } from 'lucide-react';
 import {
   posInstallments,
   salesRequests,
@@ -38,6 +39,8 @@ export default function PosInstallments({ lang }: { lang: Lang }) {
   const [months, setMonths] = useState('12');
   const [interestRate, setInterestRate] = useState('0');
   const [genError, setGenError] = useState<string | null>(null);
+  const [documentError, setDocumentError] = useState<string | null>(null);
+  const location = useLocation();
 
   const plansQuery = useQuery({
     queryKey: ['pos-installments', viewingBranchId, search],
@@ -69,10 +72,28 @@ export default function PosInstallments({ lang }: { lang: Lang }) {
   });
 
   const money = (v: number) =>
-    `${Number(v).toLocaleString(isRtl ? 'ar-EG' : 'en-EG', { maximumFractionDigits: 0 })} ${isRtl ? 'ج.م' : 'EGP'}`;
+    `${Number(v).toLocaleString(isRtl ? 'ar-EG' : 'en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${isRtl ? 'ج.م' : 'EGP'}`;
 
   const plans: PosInstallmentPlanRecord[] = plansQuery.data ?? [];
   const pendingRequests = requestsQuery.data?.filter((r) => r.status === 'PENDING') ?? [];
+  const routeNotice = (location.state as { directNotice?: string } | null)?.directNotice;
+
+  async function downloadPlanDocument(planId: string, documentKey: string, filename: string) {
+    setDocumentError(null);
+    try {
+      const file = await posInstallments.downloadDocument(planId, documentKey);
+      const objectUrl = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : (isRtl ? 'تعذر تنزيل المستند.' : 'Could not download the document.'));
+    }
+  }
 
   const activePlans = plans.filter((plan) => plan.status === 'ACTIVE').length;
   const totalOutstanding = plans.reduce((sum, plan) => sum + plan.remainingBalance, 0);
@@ -90,11 +111,20 @@ export default function PosInstallments({ lang }: { lang: Lang }) {
           <h1>{isRtl ? 'خطط التقسيط' : 'Installment Plans'}</h1>
           <p>{isRtl ? 'عرض ومتابعة خطط التقسيط النشطة.' : 'View and track active installment plans.'}</p>
         </div>
-        <button className="primary-action pos-installment-primary" onClick={() => setShowGenerate(true)}>
-          <Plus size={16} />
-          {isRtl ? 'إنشاء خطة من طلب' : 'Generate from Request'}
-        </button>
+        <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <NavLink className="secondary-action" to="/pos-installments/new">
+            <Bike size={16} />
+            {isRtl ? 'إنشاء خطة تقسيط' : 'Create Installment Plan'}
+          </NavLink>
+          <button className="primary-action pos-installment-primary" onClick={() => setShowGenerate(true)}>
+            <Plus size={16} />
+            {isRtl ? 'إنشاء خطة من طلب' : 'Generate from Request'}
+          </button>
+        </div>
       </div>
+
+      {routeNotice && <div className="state-panel" role="status" style={{ marginBottom: '1rem', color: 'var(--green)' }}>{routeNotice}</div>}
+      {documentError && <div className="state-panel" role="alert" style={{ marginBottom: '1rem' }}>{documentError}</div>}
 
       <div className="pos-installment-summary-grid">
         <div className="surface-panel pos-summary-card">
@@ -165,7 +195,7 @@ export default function PosInstallments({ lang }: { lang: Lang }) {
               </label>
 
               <label className="pos-plan-form-label">
-                <span>{isRtl ? 'الفائدة (%)' : 'Interest Rate (%)'}</span>
+                <span>{isRtl ? 'الفائدة السنوية (%)' : 'Annual interest rate (%)'}</span>
                 <input
                   type="number"
                   min="0"
@@ -270,6 +300,71 @@ export default function PosInstallments({ lang }: { lang: Lang }) {
 
                 {isExpanded && (
                   <div className="pos-plan-schedule-wrap">
+                    <div className="pos-plan-meta">
+                      <span>{isRtl ? 'رقم الدراجة:' : 'Motorcycle number:'} {plan.motorcycle.vin}</span>
+                      <span>{isRtl ? 'السنة:' : 'Year:'} {plan.motorcycle.year}</span>
+                      {plan.motorcycle.color && <span>{isRtl ? 'اللون:' : 'Color:'} {plan.motorcycle.color}</span>}
+                      {plan.customerEmail && <span>{isRtl ? 'البريد الإلكتروني:' : 'Email:'} {plan.customerEmail}</span>}
+                      {plan.buyerAddress && <span>{isRtl ? 'العنوان:' : 'Address:'} {plan.buyerAddress}</span>}
+                      {plan.buyerOccupation && <span>{isRtl ? 'المهنة:' : 'Occupation:'} {plan.buyerOccupation}</span>}
+                      {plan.buyerOccupationAddress && <span>{isRtl ? 'عنوان العمل:' : 'Occupation address:'} {plan.buyerOccupationAddress}</span>}
+                      {plan.documentType && <span>{isRtl ? 'نوع المستند:' : 'Document route:'} {plan.documentType}</span>}
+                      {plan.firstGuarantorName && <span>{isRtl ? 'الضامن الأول:' : 'First guarantor:'} {plan.firstGuarantorName}</span>}
+                      {plan.firstGuarantorPhone && <span>{isRtl ? 'هاتف الضامن الأول:' : 'First guarantor phone:'} {plan.firstGuarantorPhone}</span>}
+                      {plan.firstGuarantorAddress && <span>{isRtl ? 'عنوان الضامن الأول:' : 'First guarantor address:'} {plan.firstGuarantorAddress}</span>}
+                      {plan.firstGuarantorOccupation && <span>{isRtl ? 'مهنة الضامن الأول:' : 'First guarantor occupation:'} {plan.firstGuarantorOccupation}</span>}
+                      {plan.firstGuarantorOccupationAddress && <span>{isRtl ? 'عنوان عمل الضامن الأول:' : 'First guarantor occupation address:'} {plan.firstGuarantorOccupationAddress}</span>}
+                      {plan.secondGuarantorName && <span>{isRtl ? 'الضامن الثاني:' : 'Second guarantor:'} {plan.secondGuarantorName}</span>}
+                      {plan.secondGuarantorPhone && <span>{isRtl ? 'هاتف الضامن الثاني:' : 'Second guarantor phone:'} {plan.secondGuarantorPhone}</span>}
+                      {plan.secondGuarantorAddress && <span>{isRtl ? 'عنوان الضامن الثاني:' : 'Second guarantor address:'} {plan.secondGuarantorAddress}</span>}
+                      {plan.secondGuarantorOccupation && <span>{isRtl ? 'مهنة الضامن الثاني:' : 'Second guarantor occupation:'} {plan.secondGuarantorOccupation}</span>}
+                      {plan.secondGuarantorOccupationAddress && <span>{isRtl ? 'عنوان عمل الضامن الثاني:' : 'Second guarantor occupation address:'} {plan.secondGuarantorOccupationAddress}</span>}
+                    </div>
+                    {plan.annualInterestRate != null && plan.durationMonths != null && (
+                      <div className="pos-plan-meta">
+                        {plan.financingCompany && (
+                          <span>{isRtl ? 'شركة التمويل:' : 'Financing company:'} {plan.financingCompany.name}</span>
+                        )}
+                        {plan.motorcyclePrice != null && (
+                          <span>{isRtl ? 'سعر الدراجة:' : 'Motorcycle price:'} {money(plan.motorcyclePrice)}</span>
+                        )}
+                        <span>{isRtl ? 'الدفعة المقدمة:' : 'Down payment:'} {money(plan.downPayment ?? 0)}</span>
+                        <span>{isRtl ? 'المبلغ المموّل:' : 'Financed amount:'} {money(plan.financedAmount ?? 0)}</span>
+                        <span>{isRtl ? 'الفائدة السنوية:' : 'Annual rate:'} {plan.annualInterestRate}%</span>
+                        <span>{isRtl ? 'إجمالي الفائدة:' : 'Total interest:'} {money(plan.totalInterest ?? 0)}</span>
+                        <span>{isRtl ? 'المدة:' : 'Duration:'} {plan.durationMonths} {isRtl ? 'شهر' : 'months'}</span>
+                        {plan.installments[0] && (
+                          <span>{isRtl ? 'القسط الشهري المجدول:' : 'Scheduled monthly installment:'} {money(plan.installments[0].amount)}</span>
+                        )}
+                        {plan.orderId && <span>{isRtl ? 'رقم البيع:' : 'Sale order:'} {plan.orderId}</span>}
+                      </div>
+                    )}
+                    {plan.documents && (
+                      <div className="pos-plan-meta">
+                        {([
+                          ['buyerIdFront', 'buyerIdFront', 'Buyer ID - front', 'بطاقة المشتري - وجه'],
+                          ['buyerIdBack', 'buyerIdBack', 'Buyer ID - back', 'بطاقة المشتري - ظهر'],
+                          ['supportingDocument', 'supportingDocument', 'Supporting document', 'المستند الداعم'],
+                          ['firstGuarantorIdFront', 'firstGuarantorIdFront', 'First guarantor ID - front', 'بطاقة الضامن الأول - وجه'],
+                          ['firstGuarantorIdBack', 'firstGuarantorIdBack', 'First guarantor ID - back', 'بطاقة الضامن الأول - ظهر'],
+                          ['secondGuarantorIdFront', 'secondGuarantorIdFront', 'Second guarantor ID - front', 'بطاقة الضامن الثاني - وجه'],
+                          ['secondGuarantorIdBack', 'secondGuarantorIdBack', 'Second guarantor ID - back', 'بطاقة الضامن الثاني - ظهر'],
+                          ['guarantorSignature', 'guarantorSignature', 'Guarantor signature', 'توقيع الضامن'],
+                          ['electricityLetter', 'electricityLetter', 'Electricity bill', 'إيصال كهرباء'],
+                        ] as const).map(([key, document, en, ar]) => (
+                          <span key={key}>
+                            {isRtl ? ar : en}: {plan.documents?.[key]
+                              ? (isRtl ? 'مرفق' : 'Attached')
+                              : (isRtl ? 'غير مرفق' : 'Not attached')}
+                            {plan.documents?.[key] && (
+                              <button type="button" className="secondary-action" onClick={() => void downloadPlanDocument(plan.id, document, key)}>
+                                <Download size={14} /> {isRtl ? 'تنزيل' : 'Download'}
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {plan.installments.length === 0 ? (
                       <p className="pos-plan-empty">{isRtl ? 'لا توجد أقساط.' : 'No installments.'}</p>
                     ) : (

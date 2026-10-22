@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, Edit3, ExternalLink, MessageCircle, Save, Trash2, User, Bike, FileImage, Printer } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { customerFinancing, inquiries, type InstallmentRequest } from '../api';
-import { formatInstallmentRequestHTML } from '../utils/receiptFormatter';
+import { formatDownPaymentReceiptHTML, formatInstallmentRequestHTML } from '../utils/receiptFormatter';
 
 function buildWhatsAppUrl(phone: string, message: string) {
   const cleanPhone = phone.replace(/\D/g, '');
@@ -16,6 +16,13 @@ const statusStyles: Record<string, { bg: string; color: string; border: string; 
   rejected: { bg: '#fef2f2', color: '#b91c1c', border: '#fca5a5', label: '' },
 };
 
+function parseSavedDownPayment(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : null;
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
 export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }) {
   const isRtl = lang === 'ar';
   const navigate = useNavigate();
@@ -23,6 +30,7 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [selectedMotorcycleId, setSelectedMotorcycleId] = useState('');
+  const [receiptError, setReceiptError] = useState<string | null>(null);
   const [form, setForm] = useState({ buyerName: '', buyerPhone: '', financingCompanyId: '', downPayment: '' });
 
   const query = useQuery<InstallmentRequest>({
@@ -110,6 +118,9 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
   const electricityLetterMissing = !request.inquiry?.id || !request.inquiry.electricityLetterUploaded;
   const electricityLetterIsImage = electricityLetterQuery.data?.type.startsWith('image/') ?? false;
   const sStyle = statusStyles[request.status] ?? statusStyles.pending;
+  const receiptCustomerName = request.customer?.name?.trim() || request.buyerName?.trim() || '';
+  const receiptCustomerPhone = request.customer?.phone?.trim() || request.buyerPhone?.trim() || '';
+  const receiptDownPayment = parseSavedDownPayment(request.downPayment);
   const printRequest = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -165,6 +176,64 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
     printWindow.focus();
     printWindow.print();
   };
+  const printDownPaymentReceipt = () => {
+    setReceiptError(null);
+    if (!receiptCustomerName || receiptDownPayment === null) {
+      setReceiptError(isRtl
+        ? !receiptCustomerName
+          ? 'تعذرت الطباعة: اسم العميل غير متاح في هذا الطلب.'
+          : 'تعذرت الطباعة: قيمة المقدم المحفوظة غير متاحة أو غير صالحة.'
+        : !receiptCustomerName
+          ? 'Cannot print: this request has no customer name.'
+          : 'Cannot print: this request has no valid saved down-payment amount.');
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setReceiptError(isRtl
+        ? 'تعذر فتح نافذة الإيصال. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.'
+        : 'The receipt window was blocked. Allow pop-ups and try again.');
+      return;
+    }
+    printWindow.opener = null;
+    try {
+      const html = formatDownPaymentReceiptHTML({
+        buyerName: receiptCustomerName,
+        buyerPhone: receiptCustomerPhone,
+        downPayment: receiptDownPayment,
+        motorcycle: request.motorcycle
+          ? {
+              brand: isRtl
+                ? request.motorcycle.brand?.nameAr ?? request.motorcycle.brand?.nameEn
+                : request.motorcycle.brand?.nameEn ?? request.motorcycle.brand?.nameAr,
+              model: request.motorcycle.model,
+            }
+          : request.inquiry?.requestedMotorcycle
+            ? {
+                brand: isRtl
+                  ? request.inquiry.requestedMotorcycle.brandNameAr
+                  : request.inquiry.requestedMotorcycle.brandNameEn,
+                model: [
+                  isRtl
+                    ? request.inquiry.requestedMotorcycle.categoryNameAr
+                    : request.inquiry.requestedMotorcycle.categoryNameEn,
+                  request.inquiry.requestedMotorcycle.model,
+                ].filter(Boolean).join(' · '),
+              }
+            : null,
+      }, lang);
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      window.setTimeout(() => printWindow.print(), 250);
+    } catch {
+      printWindow.close();
+      setReceiptError(isRtl
+        ? 'تعذر تجهيز الإيصال للطباعة. أعد المحاولة.'
+        : 'Could not prepare the receipt for printing. Please try again.');
+    }
+  };
 
   return (
     <section className="desktop-page" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -195,6 +264,9 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
         <button className="premium-action-btn outline" onClick={printRequest}>
           <Printer size={17} /> {isRtl ? 'طباعة الطلب' : 'Print request'}
         </button>
+        <button className="premium-action-btn outline" onClick={printDownPaymentReceipt}>
+          <Printer size={17} /> {isRtl ? 'طباعة إيصال المقدم' : 'Print down-payment receipt'}
+        </button>
         {request.status !== 'approved' && (
           <button
             className="premium-action-btn success-outline"
@@ -221,6 +293,11 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
           <Trash2 size={17} /> {isRtl ? 'حذف' : 'Delete'}
         </button>
       </div>
+      {receiptError && (
+        <div className="state-panel" role="alert" style={{ marginBottom: '1.25rem' }}>
+          {receiptError}
+        </div>
+      )}
       {approve.isError && (
         <div className="state-panel" role="alert" style={{ marginBottom: '1.25rem' }}>
           {approve.error instanceof Error ? approve.error.message : (isRtl ? 'تعذر تخصيص الدراجة أو الموافقة على الطلب.' : 'Could not allocate the motorcycle or approve the request.')}

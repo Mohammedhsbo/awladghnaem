@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react';
 import { BrowserRouter, NavLink, Routes, Route, useLocation } from 'react-router-dom';
 import { MutationCache, QueryClient, QueryClientProvider, QueryCache, useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, BarChart3, Bike, Building2, CircleDollarSign, ClipboardList, Clock, FileImage, LogOut, Menu, Package, Plus, Printer, Shield, ShoppingCart, Users, WalletCards, X } from 'lucide-react';
+import { ArrowRightLeft, BarChart3, Bike, Building2, CircleDollarSign, ClipboardList, Clock, FileImage, LogOut, Menu, Package, Plus, Shield, ShoppingCart, Tags, Users, WalletCards, X } from 'lucide-react';
 import { auth, branches, desktopPermissions, getApiErrorMessage, getToken, getUser, setUser, clearToken, clearUser, pos, type BranchSummary, type DesktopUser } from './api';
 import { emitToast } from './components/Toast';
 import { useViewingBranch, ViewingBranchProvider } from './contexts/ViewingBranchContext';
@@ -28,15 +28,18 @@ import TransactionHistory from './pages/TransactionHistory';
 import AccountManagement from './pages/AccountManagement';
 import MyAccount from './pages/MyAccount';
 import CustomerInquiries from './pages/CustomerInquiries';
+import InquiryDetail from './pages/InquiryDetail';
 import Transfers from './pages/Transfers';
 import TransferCreate from './pages/TransferCreate';
 import FinancingCompanies from './pages/FinancingCompanies';
 import Sales from './pages/Sales';
 import PosInstallments from './pages/PosInstallments';
+import PosInstallmentCreate from './pages/PosInstallmentCreate';
 import DesktopPermissionsPage from './pages/DesktopPermissions';
 import Attendance from './pages/Attendance';
 import Branches from './pages/Branches';
 import CurrentOrders from './pages/CurrentOrders';
+import Brands from './pages/Brands';
 
 
 const qc = new QueryClient({
@@ -54,6 +57,7 @@ const navItems = [
   { path: '/reservations', icon: ClipboardList, en: 'Reservations', ar: 'الحجوزات', pageKey: 'reservations' },
   { path: '/history', icon: ClipboardList, en: 'Transaction history', ar: 'سجل المعاملات', pageKey: 'history' },
   { path: '/inventory', icon: Bike, en: 'Inventory', ar: 'المخزون', pageKey: 'inventory' },
+  { path: '/brands', icon: Tags, en: 'Motorcycle brands', ar: 'الماركات التجارية', pageKey: 'brands' },
   { path: '/transfers', icon: ArrowRightLeft, en: 'Transfers', ar: 'التحويلات', pageKey: 'transfers' },
   { path: '/customers', icon: Users, en: 'Customers', ar: 'العملاء', pageKey: 'customers' },
   { path: '/inquiries', icon: FileImage, en: 'Inquiries', ar: 'استعلامات', pageKey: 'inquiries' },
@@ -64,7 +68,6 @@ const navItems = [
   { path: '/reports', icon: BarChart3, en: 'Reports', ar: 'التقارير', pageKey: 'reports' },
   { path: '/suppliers', icon: Building2, en: 'Suppliers', ar: 'الموردون', pageKey: 'suppliers' },
   { path: '/financing-companies', icon: CircleDollarSign, en: 'Financing Companies', ar: 'شركات التمويل', pageKey: 'financing-companies' },
-  { path: '/printers', icon: Printer, en: 'Printers', ar: 'الطابعات', pageKey: 'printers' },
   { path: '/branches', icon: Building2, en: 'Branches management', ar: 'إدارة الفروع', adminOnly: true },
   { path: '/accounts', icon: Users, en: 'Account management', ar: 'إدارة الحسابات', adminOnly: true },
   { path: '/desktop-permissions', icon: Shield, en: 'Permissions', ar: 'الصلاحيات', adminOnly: true },
@@ -73,6 +76,8 @@ const navItems = [
 ];
 
 const permissionForPath: Record<string, Array<[string, string]>> = {
+  '/inquiries': [['customer', 'read'], ['motorcycle', 'read']],
+  '/pos-installments': [['order', 'read']],
   '/installments': [['financing_contract', 'read']],
   '/installment-requests': [['installment', 'read']],
   '/current-orders': [['customer', 'read'], ['order', 'read'], ['installment', 'read']],
@@ -80,6 +85,7 @@ const permissionForPath: Record<string, Array<[string, string]>> = {
   '/suppliers': [['supplier', 'read']],
   '/transfers': [['transfer', 'read']],
   '/financing-companies': [['setting', 'read']],
+  '/brands': [['motorcycle', 'read']],
 };
 
 function canAccessPath(user: DesktopUser | null, path: string) {
@@ -286,6 +292,7 @@ function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: 
         <Route path="/dashboard" element={<Dashboard lang={lang} />} />
         <Route path="/sales" element={<Sales lang={lang} />} />
         <Route path="/pos-installments" element={<PosInstallments lang={lang} />} />
+        <Route path="/pos-installments/new" element={gatedRoute(user, lang, '/pos-installments', <PosInstallmentCreate lang={lang} />)} />
         <Route path="/transactions/:id" element={<OrderDetailPOS lang={lang} />} />
         <Route path="/reservations" element={<ReservationsPOS lang={lang} />} />
         <Route path="/reservations/new" element={<CreateReservation lang={lang} />} />
@@ -295,10 +302,12 @@ function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: 
         <Route path="/inventory/new" element={<InventoryForm lang={lang} branchId={selectedBranchId ?? undefined} />} />
         <Route path="/inventory/:id/edit" element={<InventoryForm lang={lang} branchId={selectedBranchId ?? undefined} />} />
         <Route path="/inventory/:id" element={<InventoryDetail lang={lang} />} />
+        <Route path="/brands" element={gatedRoute(user, lang, '/brands', <Brands lang={lang} />)} />
         <Route path="/transfers" element={restrictedPages.transfers} />
         <Route path="/transfers/new" element={<TransferCreate lang={lang} />} />
         <Route path="/customers" element={<Customers lang={lang} />} />
         <Route path="/inquiries" element={<CustomerInquiries lang={lang} />} />
+        <Route path="/inquiries/:id" element={<InquiryDetail lang={lang} />} />
         <Route path="/current-orders" element={restrictedPages.currentOrders} />
         <Route path="/installments" element={restrictedPages.installments} />
         <Route path="/installments/:id" element={<InstallmentDetail lang={lang} />} />

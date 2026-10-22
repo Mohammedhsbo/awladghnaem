@@ -8,7 +8,7 @@ import { useViewingBranch } from '../contexts/ViewingBranchContext';
 import { buildWhatsAppUrl } from '../../../../packages/shared-types/src/whatsapp';
 
 type Lang = 'en' | 'ar';
-type Step = 'list' | 'method' | 'cash-details' | 'installment-details' | 'reserve-details' | 'confirm' | 'done' | 'done-installment' | 'done-reserve';
+type Step = 'list' | 'reservation-list' | 'method' | 'cash-details' | 'installment-details' | 'reserve-details' | 'confirm' | 'done' | 'done-installment' | 'done-reserve';
 
 function displayFuelType(fuelType: MotorcycleSearchResult['fuelType'], lang: Lang) {
   if (fuelType === 'PETROL') return lang === 'ar' ? 'بنزين' : 'Petrol';
@@ -22,6 +22,8 @@ export default function Sales({ lang }: { lang: Lang }) {
   const navigate = useNavigate();
   const { viewingBranchId } = useViewingBranch();
   const user = getUser();
+  const canCreateReservation = user?.role.name === 'super_admin' ||
+    user?.role.permissions.some(permission => permission.resource === 'reservation' && permission.action === 'create') === true;
 
   /* ── state machine ─────────────────────────────── */
   const [step, setStep] = useState<Step>('method');
@@ -112,6 +114,7 @@ export default function Sales({ lang }: { lang: Lang }) {
       setStep('done-reserve');
       void qc.invalidateQueries({ queryKey: ['desktop-inventory'] });
       void qc.invalidateQueries({ queryKey: ['desktop-reservations'] });
+      void qc.invalidateQueries({ queryKey: ['pos-dashboard'] });
     },
     onError: (err: Error) => setError(err.message),
   });
@@ -326,13 +329,27 @@ export default function Sales({ lang }: { lang: Lang }) {
               <h3>{isRtl ? 'تقسيط' : 'Installment'}</h3>
               <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'بدء استعلام تقسيط' : 'Start an installment inquiry'}</p>
             </button>
+            {canCreateReservation && (
+              <button
+                type="button"
+                className="inventory-card clickable sale-method-option"
+                style={{ gridColumn: '1 / -1', textAlign: 'center', borderColor: 'var(--accent-primary)', padding: '1.5rem' }}
+                onClick={() => { setQuery(''); setError(null); setStep('reservation-list'); }}
+              >
+                <h3>{isRtl ? 'حجز الدراجة' : 'Reserve a motorcycle'}</h3>
+                <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'اختيار دراجة متاحة وإنشاء حجز دون إتمام عملية بيع' : 'Choose an available motorcycle and reserve it without completing a sale'}</p>
+              </button>
+            )}
           </div>
         </div>
       )}
 
       {/* ── STEP 2: Select available motorcycle for cash ─ */}
-      {step === 'list' && (
+      {(step === 'list' || step === 'reservation-list') && (
         <>
+          {step === 'reservation-list' && (
+            <h2>{isRtl ? 'اختر دراجة متاحة للحجز' : 'Select an available motorcycle to reserve'}</h2>
+          )}
           <div className="toolbar">
             <div className="search-box">
               <Search size={17} />
@@ -366,7 +383,7 @@ export default function Sales({ lang }: { lang: Lang }) {
                   <button
                     key={mc.id}
                     className="mc-card"
-                    onClick={() => { setSelectedMc(mc); setStep('cash-details'); }}
+                    onClick={() => { setSelectedMc(mc); setError(null); setStep(step === 'reservation-list' ? 'reserve-details' : 'cash-details'); }}
                     dir={isRtl ? 'rtl' : 'ltr'}
                   >
                     {/* Card header — gradient image area */}
@@ -389,7 +406,9 @@ export default function Sales({ lang }: { lang: Lang }) {
                         {mc.price.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}
                       </span>
                       <span className="mc-card-cta">
-                        {isRtl ? 'بيع ←' : 'Sell →'}
+                        {step === 'reservation-list'
+                          ? (isRtl ? 'حجز ←' : 'Reserve →')
+                          : (isRtl ? 'بيع ←' : 'Sell →')}
                       </span>
                     </div>
                   </button>
@@ -408,9 +427,6 @@ export default function Sales({ lang }: { lang: Lang }) {
             {isRtl ? 'الدراجة: ' : 'Motorcycle: '}<strong>{isRtl ? selectedMc.brand.nameAr : selectedMc.brand.nameEn} {selectedMc.model}</strong>
             {' · '}{isRtl ? 'نوع الوقود: ' : 'Fuel type: '}{displayFuelType(selectedMc.fuelType, lang)}
           </p>
-          <button type="button" className="secondary-action" onClick={() => setStep('reserve-details')}>
-            {isRtl ? 'حجز هذه الدراجة بدلاً من بيعها' : 'Reserve this motorcycle instead'}
-          </button>
           {error && <div className="state-panel" role="alert" style={{ color: 'var(--red-light)' }}>{error}</div>}
           <label className="sales-upload-field">
             {isRtl ? 'اسم العميل *' : 'Customer Name *'}

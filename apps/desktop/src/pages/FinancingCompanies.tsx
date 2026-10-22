@@ -14,6 +14,8 @@ const T = {
     refresh: 'Refresh',
     name: 'Company name',
     whatsappNumber: 'WhatsApp number',
+    annualInterestRate: 'Annual interest rate (%)',
+    administrativeFees: 'Administrative Fees (المصاريف الإدارية)',
     sortOrder: 'Sort order',
     active: 'Active',
     inactive: 'Inactive',
@@ -32,6 +34,8 @@ const T = {
     required: 'Name is required',
     requiredWhatsApp: 'WhatsApp number is required',
     invalidWhatsApp: 'WhatsApp number must be a valid phone number',
+    invalidAnnualInterestRate: 'Annual interest rate must be between 0 and 999.99',
+    invalidAdministrativeFees: 'Administrative fees must be a non-negative amount',
   },
   ar: {
     title: 'شركات التمويل',
@@ -41,6 +45,8 @@ const T = {
     refresh: 'تحديث',
     name: 'اسم الشركة',
     whatsappNumber: 'رقم واتساب',
+    annualInterestRate: 'نسبة الفائدة السنوية (%)',
+    administrativeFees: 'Administrative Fees (المصاريف الإدارية)',
     sortOrder: 'الترتيب',
     active: 'نشطة',
     inactive: 'غير نشطة',
@@ -59,17 +65,21 @@ const T = {
     required: 'الاسم مطلوب',
     requiredWhatsApp: 'رقم واتساب مطلوب',
     invalidWhatsApp: 'رقم واتساب غير صحيح',
+    invalidAnnualInterestRate: 'نسبة الفائدة السنوية يجب أن تكون بين 0 و999.99',
+    invalidAdministrativeFees: 'يجب أن تكون المصاريف الإدارية قيمة غير سالبة',
   },
 };
 
 interface FormState {
   name: string;
   whatsappNumber: string;
+  annualInterestRate: string;
+  administrativeFees: string;
   isActive: boolean;
   sortOrder: number;
 }
 
-const emptyForm: FormState = { name: '', whatsappNumber: '', isActive: true, sortOrder: 0 };
+const emptyForm: FormState = { name: '', whatsappNumber: '', annualInterestRate: '0', administrativeFees: '0', isActive: true, sortOrder: 0 };
 const whatsappPattern = /^\+?[0-9\s-]{8,20}$/;
 
 
@@ -123,7 +133,7 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
 
   const openEdit = (company: FinancingCompanyRecord) => {
     setEditTarget(company);
-    setForm({ name: company.name, whatsappNumber: company.whatsappNumber ?? '', isActive: company.isActive, sortOrder: company.sortOrder });
+    setForm({ name: company.name, whatsappNumber: company.whatsappNumber ?? '', annualInterestRate: String(company.annualInterestRate), administrativeFees: String(company.administrativeFees ?? 0), isActive: company.isActive, sortOrder: company.sortOrder });
     setFormError('');
     setShowForm(true);
   };
@@ -139,9 +149,25 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
     if (!form.name.trim()) { setFormError(t.required); return; }
     if (!form.whatsappNumber.trim()) { setFormError(t.requiredWhatsApp); return; }
     if (!whatsappPattern.test(form.whatsappNumber.trim())) { setFormError(t.invalidWhatsApp); return; }
+    const annualInterestRate = Number(form.annualInterestRate);
+    if (!Number.isFinite(annualInterestRate) || annualInterestRate < 0 || annualInterestRate > 999.99) {
+      setFormError(t.invalidAnnualInterestRate);
+      return;
+    }
+    if (!form.administrativeFees.trim()) {
+      setFormError(t.invalidAdministrativeFees);
+      return;
+    }
+    const administrativeFees = Number(form.administrativeFees);
+    if (!Number.isFinite(administrativeFees) || administrativeFees < 0) {
+      setFormError(t.invalidAdministrativeFees);
+      return;
+    }
     const payload: FinancingCompanyInput = {
       name: form.name.trim(),
       whatsappNumber: form.whatsappNumber.trim(),
+      annualInterestRate,
+      administrativeFees,
       isActive: form.isActive,
       sortOrder: form.sortOrder,
     };
@@ -209,6 +235,8 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                 <th style={{ padding: '0.75rem 1rem', textAlign: isRtl ? 'right' : 'left', fontWeight: 600 }}>#</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: isRtl ? 'right' : 'left', fontWeight: 600 }}>{t.name}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: isRtl ? 'right' : 'left', fontWeight: 600 }}>{t.whatsappNumber}</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{t.annualInterestRate}</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{t.administrativeFees}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{isRtl ? 'الحالة' : 'Status'}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{t.sortOrder}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: isRtl ? 'right' : 'left', fontWeight: 600 }}>{t.createdAt}</th>
@@ -237,6 +265,17 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                       }} />
                       {c.name}
                     </div>
+                  </td>
+                  <td style={{ padding: '0.75rem 1rem', textAlign: isRtl ? 'right' : 'left', direction: 'ltr' }}>
+                    {c.whatsappNumber}
+                  </td>
+                  <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                    {c.annualInterestRate.toLocaleString(isRtl ? 'ar-EG' : 'en-GB')}%
+                  </td>
+                  <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                    {c.administrativeFees == null
+                      ? '—'
+                      : `${c.administrativeFees.toLocaleString(isRtl ? 'ar-EG' : 'en-GB')} EGP`}
                   </td>
                   <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
                     <span className={`status-pill ${c.isActive ? 'status-available' : 'status-sold'}`}>
@@ -304,6 +343,29 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                   value={form.whatsappNumber}
                   onChange={e => setForm(f => ({ ...f, whatsappNumber: e.target.value }))}
                   placeholder={isRtl ? '+966...' : '+966...'}
+                  required
+                />
+              </label>
+              <label>
+                <span>{t.annualInterestRate} *</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={999.99}
+                  step="0.01"
+                  value={form.annualInterestRate}
+                  onChange={e => setForm(f => ({ ...f, annualInterestRate: e.target.value }))}
+                  required
+                />
+              </label>
+              <label>
+                <span>{t.administrativeFees} *</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.administrativeFees}
+                  onChange={e => setForm(f => ({ ...f, administrativeFees: e.target.value }))}
                   required
                 />
               </label>

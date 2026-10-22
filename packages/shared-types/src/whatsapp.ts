@@ -8,6 +8,14 @@ export function normalizeWhatsAppPhone(phone: string, defaultCountryCode = "966"
   return digits;
 }
 
+export function getValidWhatsAppPhone(phone: string, defaultCountryCode = "966"): string | null {
+  const trimmedPhone = phone.trim();
+  if (!/^\+?[0-9\s().-]+$/.test(trimmedPhone)) return null;
+
+  const normalizedPhone = normalizeWhatsAppPhone(trimmedPhone, defaultCountryCode);
+  return /^[1-9][0-9]{7,14}$/.test(normalizedPhone) ? normalizedPhone : null;
+}
+
 export function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${normalizeWhatsAppPhone(phone)}?text=${encodeURIComponent(message)}`;
 }

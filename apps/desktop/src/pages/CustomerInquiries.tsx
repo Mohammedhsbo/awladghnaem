@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileImage, Plus, PenTool, CheckCircle2 } from 'lucide-react';
+import { Eye, FileDown, FileImage, MessageCircle, Plus, PenTool, CheckCircle2 } from 'lucide-react';
 import { inquiries, financingCompanies, installmentDurations, type InquiryInput, type InquiryDocumentType, type InquiryMotorcycleOption, type InquiryRecord, getUser } from '../api';
 import { DataList, DataTableState } from '../components/DataTable';
 import { useViewingBranch } from '../contexts/ViewingBranchContext';
+import { buildInquiryWhatsAppMessage, buildInquiryWhatsAppUrl } from '../utils/inquiryWhatsApp';
 
 type Lang = 'en' | 'ar';
 type InquiryImageField = 'documentImage' | 'idCardFrontImage' | 'idCardBackImage' | 'guarantorIdFrontImage' | 'guarantorIdBackImage' | 'guarantor2IdFrontImage' | 'guarantor2IdBackImage';
@@ -12,6 +13,70 @@ type InquiryImageField = 'documentImage' | 'idCardFrontImage' | 'idCardBackImage
 function isNewInquiryNavigation(state: unknown): boolean {
   return typeof state === 'object' && state !== null &&
     'openNewInquiry' in state && state.openNewInquiry === true;
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]!);
+}
+
+function calculateInquiryBreakdown(
+  price: number | null | undefined,
+  downPayment: number | null | undefined,
+  annualInterestRate: number | null | undefined,
+  months: number | null | undefined,
+) {
+  if (price == null || downPayment == null || annualInterestRate == null || months == null) return null;
+  if (![price, downPayment, annualInterestRate, months].every(Number.isFinite) ||
+    price <= 0 || downPayment < 0 || downPayment > price || annualInterestRate < 0 || months < 1) return null;
+  const roundMoney = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
+  const financedAmount = roundMoney(price - downPayment);
+  const totalInterest = roundMoney(financedAmount * annualInterestRate / 100 * months / 12);
+  const totalAmountDue = roundMoney(financedAmount + totalInterest);
+  return {
+    financedAmount,
+    totalInterest,
+    totalAmountDue,
+    monthlyInstallment: roundMoney(totalAmountDue / months),
+  };
+}
+
+function inquiryPdfHtml(inquiry: InquiryRecord, lang: Lang) {
+  const labels = lang === 'ar'
+    ? { title: 'بيانات الاستعلام', name: 'اسم العميل', motorcycle: 'الموتوسيكل', phone: 'رقم الهاتف', downPayment: 'المقدم', unavailable: 'غير متاح' }
+    : { title: 'Inquiry Details', name: 'Customer Name', motorcycle: 'Motorcycle', phone: 'Phone Number', downPayment: 'Down Payment', unavailable: 'Not available' };
+  const motorcycle = inquiry.requestedMotorcycle
+    ? [
+        lang === 'ar' ? inquiry.requestedMotorcycle.brandNameAr : inquiry.requestedMotorcycle.brandNameEn,
+        lang === 'ar' ? inquiry.requestedMotorcycle.categoryNameAr : inquiry.requestedMotorcycle.categoryNameEn,
+        inquiry.requestedMotorcycle.model,
+      ].filter(Boolean).join(' · ')
+    : inquiry.motorcycle
+      ? [
+          lang === 'ar' ? inquiry.motorcycle.brand.nameAr : inquiry.motorcycle.brand.nameEn,
+          lang === 'ar' ? inquiry.motorcycle.category?.nameAr : inquiry.motorcycle.category?.nameEn,
+          inquiry.motorcycle.model,
+        ].filter(Boolean).join(' · ')
+        : null;
+  const currency = (amount: number | undefined) => amount == null || !Number.isFinite(amount)
+    ? labels.unavailable
+    : new Intl.NumberFormat(lang === 'ar' ? 'ar-EG' : 'en-GB', { style: 'currency', currency: 'EGP' }).format(amount);
+  const downPayment = inquiry.downPayment ?? inquiry.financingBreakdown?.downPayment;
+  const row = (label: string, value: string) =>
+    `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value || labels.unavailable)}</td></tr>`;
+  return `<!doctype html><html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${escapeHtml(labels.title)}</title><style>
+    @page{size:A4;margin:18mm}*{box-sizing:border-box}body{font-family:Arial,"Segoe UI",sans-serif;color:#17243a;line-height:1.55;margin:0;font-size:12pt}h1{color:#1e40af;border-bottom:3px solid #1e40af;padding-bottom:12px;margin:0 0 18px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #dbe3ef;padding:12px 14px;text-align:start;vertical-align:top}th{width:35%;background:#f3f7fc;font-weight:700}td{white-space:pre-wrap;overflow-wrap:anywhere}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
+    <h1>${escapeHtml(labels.title)}</h1><table><tbody>
+        ${row(labels.name, inquiry.customerName)}
+        ${row(labels.motorcycle, motorcycle ?? '')}
+        ${row(labels.phone, inquiry.customerPhone)}
+        ${row(labels.downPayment, currency(downPayment))}
+    </tbody></table></body></html>`;
 }
 
 function InquiryImageUpload({ label, file, savedUrl, required, onChange }: {
@@ -73,6 +138,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     secondGuarantorOccupation: string;
     secondGuarantorOccupationAddress: string;
     documentType: InquiryDocumentType;
+    motorcyclePrice: string;
     downPayment: string;
     requestedMotorcycle: InquiryMotorcycleOption | null;
     financingCompanyId: string;
@@ -93,6 +159,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     secondGuarantorOccupation: '',
     secondGuarantorOccupationAddress: '',
     documentType: 'EMPLOYEE',
+    motorcyclePrice: '',
     downPayment: '',
     requestedMotorcycle: null,
     financingCompanyId: '',
@@ -115,6 +182,11 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   const [error, setError] = useState<string | null>(null);
   const [savedInquiryId, setSavedInquiryId] = useState<string | null>(null);
   const [savedInquiryHasPhysicalMotorcycle, setSavedInquiryHasPhysicalMotorcycle] = useState(false);
+  const [lastSavedInquiry, setLastSavedInquiry] = useState<InquiryRecord | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [openingWhatsAppInquiryId, setOpeningWhatsAppInquiryId] = useState<string | null>(null);
+  const whatsappOpenLock = useRef(false);
   const [editingInquiryId, setEditingInquiryId] = useState<string | null>(null);
   const [linkMotorcycle, setLinkMotorcycle] = useState(false);
   const inquiriesQuery = useQuery({ queryKey: ['inquiries'], queryFn: inquiries.list });
@@ -131,6 +203,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     onSuccess: (data) => {
       setSavedInquiryId(data.id);
       setSavedInquiryHasPhysicalMotorcycle(Boolean(data.motorcycleId));
+      setLastSavedInquiry(data);
       setShowForm(false);
       void queryClient.invalidateQueries({ queryKey: ['inquiries'] }); 
     },
@@ -140,10 +213,13 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   function resetForm() {
     setSavedInquiryId(null);
     setSavedInquiryHasPhysicalMotorcycle(false);
+    setLastSavedInquiry(null);
+    setActionError(null);
+    setActionNotice(null);
     setEditingInquiryId(null);
     setLinkMotorcycle(false);
     setSavedImageUrls({});
-    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', downPayment: '', requestedMotorcycle: null, financingCompanyId: '', installmentDurationId: '' });
+    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', motorcyclePrice: '', downPayment: '', requestedMotorcycle: null, financingCompanyId: '', installmentDurationId: '' });
     setDocumentImage(null);
     setIdCardFrontImage(null);
     setIdCardBackImage(null);
@@ -169,6 +245,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     setError(null);
     setSavedInquiryId(null);
     setSavedInquiryHasPhysicalMotorcycle(false);
+    setLastSavedInquiry(null);
     setEditingInquiryId(inquiry.id);
     const requestedMotorcycle = inquiry.requestedMotorcycle ?? (inquiry.motorcycle?.brand.id && inquiry.motorcycle.category?.id
       ? {
@@ -217,12 +294,57 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       secondGuarantorOccupation: inquiry.secondGuarantorOccupation ?? '',
       secondGuarantorOccupationAddress: inquiry.secondGuarantorOccupationAddress ?? '',
       documentType: inquiry.documentType,
+      motorcyclePrice: inquiry.motorcyclePrice == null ? (inquiry.motorcycle?.price == null ? '' : String(inquiry.motorcycle.price)) : String(inquiry.motorcyclePrice),
       downPayment: inquiry.downPayment == null ? '' : String(inquiry.downPayment),
       requestedMotorcycle,
       financingCompanyId: inquiry.financingCompanyId ?? '',
       installmentDurationId: inquiry.installmentDurationId ?? '',
     });
     setShowForm(true);
+  }
+
+  function printInquiryPdf(inquiry: InquiryRecord) {
+    setActionError(null);
+    setActionNotice(null);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setActionError(isRtl ? 'تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.' : 'Could not open the print window. Allow pop-ups and try again.');
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(inquiryPdfHtml(inquiry, lang));
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => printWindow.print(), 250);
+  }
+
+  function openInquiryWhatsApp(inquiry: InquiryRecord) {
+    setActionError(null);
+    setActionNotice(null);
+    if (whatsappOpenLock.current) return;
+    const message = buildInquiryWhatsAppMessage(inquiry);
+    const whatsappUrl = buildInquiryWhatsAppUrl(inquiry.customerPhone, message);
+    if (!whatsappUrl) {
+      setActionError(isRtl
+        ? 'رقم هاتف العميل غير صالح لواتساب. صحح الرقم المحفوظ في الاستعلام ثم أعد المحاولة.'
+        : 'The saved customer phone number is not valid for WhatsApp. Correct the number in the inquiry and try again.');
+      return;
+    }
+    whatsappOpenLock.current = true;
+    setOpeningWhatsAppInquiryId(inquiry.id);
+    const whatsappWindow = window.open(whatsappUrl, '_blank');
+    window.setTimeout(() => {
+      whatsappOpenLock.current = false;
+      setOpeningWhatsAppInquiryId(null);
+    }, 1000);
+    if (!whatsappWindow) {
+      setActionError(isRtl ? 'تعذر فتح واتساب. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.' : 'Could not open WhatsApp. Allow pop-ups and try again.');
+      return;
+    }
+    whatsappWindow.opener = null;
+    setActionNotice(isRtl
+      ? 'تم فتح واتساب برسالة تحتوي على تفاصيل الاستعلام المتاحة. راجعها واضغط إرسال بنفسك؛ لم تُرسل أي رسالة تلقائياً.'
+      : 'WhatsApp opened with the available inquiry details. Review the message and press Send yourself; nothing was sent automatically.');
   }
 
   const hasSupportingDocument = form.documentType !== 'NEITHER';
@@ -265,6 +387,26 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       setError(isRtl ? 'شركة التمويل المحددة غير موجودة.' : 'Selected financing company is not available.');
       return;
     }
+    if (form.downPayment.trim()) {
+      const downPayment = Number(form.downPayment);
+      if (!Number.isFinite(downPayment) || downPayment < 0) {
+        setError(isRtl ? 'أدخل مقدمًا صحيحًا لا يقل عن صفر.' : 'Enter a valid non-negative down payment.');
+        return;
+      }
+      if (!form.motorcyclePrice.trim()) {
+        setError(isRtl ? 'أدخل سعرًا صحيحًا للدراجة قبل تسجيل المقدم.' : 'Enter a valid motorcycle price before providing a down payment.');
+        return;
+      }
+      const price = Number(form.motorcyclePrice);
+      if (!Number.isFinite(price) || price <= 0) {
+        setError(isRtl ? 'أدخل سعرًا صحيحًا للدراجة.' : 'Enter a valid motorcycle price.');
+        return;
+      }
+      if (downPayment > price) {
+        setError(isRtl ? 'المقدم يجب ألا يقل عن صفر أو يتجاوز سعر الدراجة.' : 'Down payment must be non-negative and cannot exceed the motorcycle price.');
+        return;
+      }
+    }
 
     try {
       await create.mutateAsync({
@@ -279,6 +421,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
             }
           : null,
         downPayment: form.downPayment ? parseFloat(form.downPayment) : undefined,
+        motorcyclePrice: form.motorcyclePrice.trim() ? Number(form.motorcyclePrice) : null,
         documentImage: hasSupportingDocument ? (documentImage || undefined) : undefined,
         idCardFrontImage: idCardFrontImage || undefined, 
         idCardBackImage: idCardBackImage || undefined,
@@ -302,6 +445,21 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     COMMERCIAL_REGISTRY: isRtl ? 'سجل تجاري' : 'Commercial registry',
     NEITHER: isRtl ? 'غير ذلك' : 'Other',
   };
+  const selectedFinancingCompany = financingCompaniesQuery.data?.find(company => company.id === form.financingCompanyId);
+  const selectedDuration = installmentDurationsQuery.data?.find(duration => duration.id === form.installmentDurationId);
+  const enteredPrice = form.motorcyclePrice.trim() ? Number(form.motorcyclePrice) : null;
+  const enteredDownPayment = form.downPayment.trim() ? Number(form.downPayment) : null;
+  const financingBreakdown = calculateInquiryBreakdown(
+    enteredPrice,
+    enteredDownPayment,
+    selectedFinancingCompany?.annualInterestRate,
+    selectedDuration?.months,
+  );
+  const financingPriceMissing = enteredDownPayment != null &&
+    (enteredPrice == null || !Number.isFinite(enteredPrice) || enteredPrice <= 0);
+  const financingInputInvalid = enteredDownPayment != null &&
+    (financingPriceMissing || !Number.isFinite(enteredDownPayment) ||
+      enteredDownPayment < 0 || (enteredPrice != null && enteredDownPayment > enteredPrice));
 
   return (
     <section className="desktop-page" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -315,6 +473,9 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
           <Plus size={17} /> {isRtl ? 'استعلام جديد' : 'New inquiry'}
         </button>
       </div>
+
+      {actionError && <div className="state-panel" role="alert" style={{ marginBottom: '1rem', color: 'var(--red-light)' }}>{actionError}</div>}
+      {actionNotice && <div className="state-panel" role="status" style={{ marginBottom: '1rem', color: 'var(--green-dark, #047857)' }}>{actionNotice}</div>}
 
       {showForm && (
         <form className="inquiry-create-form" onSubmit={submit}>
@@ -357,8 +518,12 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
             </>}
             
             <label>
-              <span>{isRtl ? 'الدفعة المقدمة (اختياري)' : 'Down Payment (Optional)'}</span>
-              <input type="number" min={0} value={form.downPayment} onChange={e => setForm({ ...form, downPayment: e.target.value })} />
+              <span>{isRtl ? 'سعر الدراجة (ج.م)' : 'Motorcycle price (EGP)'}{form.downPayment.trim() ? ' *' : ''}</span>
+              <input aria-required={Boolean(form.downPayment.trim())} type="number" min={0.01} step="0.01" value={form.motorcyclePrice} onChange={e => setForm({ ...form, motorcyclePrice: e.target.value })} />
+            </label>
+            <label>
+              <span>{isRtl ? 'المقدم (ج.م)' : 'Down payment (EGP)'}</span>
+              <input type="number" min={0} step="0.01" value={form.downPayment} onChange={e => setForm({ ...form, downPayment: e.target.value })} />
             </label>
 
             <label>
@@ -366,7 +531,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
               <select value={form.financingCompanyId} onChange={e => setForm({ ...form, financingCompanyId: e.target.value })} required>
                 <option value="">{isRtl ? '-- اختر --' : '-- Select --'}</option>
                 {financingCompaniesQuery.data?.map(company => (
-                  <option key={company.id} value={company.id}>{company.name}</option>
+                  <option key={company.id} value={company.id}>{company.name} · {company.annualInterestRate}%</option>
                 ))}
               </select>
             </label>
@@ -379,6 +544,26 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
                 ))}
               </select>
             </label>
+          </div>
+          <div role="status" style={{ marginTop: '1rem', padding: '1rem', borderRadius: '0.75rem', background: 'var(--bg-2)', color: 'var(--text-secondary)' }}>
+            {financingPriceMissing
+              ? (isRtl ? 'أدخل سعرًا صحيحًا للدراجة قبل تسجيل المقدم.' : 'Enter a valid motorcycle price before providing a down payment.')
+              : financingInputInvalid
+              ? (isRtl ? 'تحقق من سعر الدراجة والمقدم؛ لا يمكن أن يتجاوز المقدم سعر الدراجة.' : 'Check the motorcycle price and down payment; the down payment cannot exceed the price.')
+              : financingBreakdown
+                ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem' }}>
+                    <strong>{isRtl ? 'سعر الدراجة:' : 'Motorcycle price:'} {enteredPrice!.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'المقدم:' : 'Down payment:'} {enteredDownPayment!.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'المبلغ المموّل:' : 'Financed amount:'} {financingBreakdown.financedAmount.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'الفائدة السنوية:' : 'Annual interest:'} {selectedFinancingCompany?.annualInterestRate}%</strong>
+                    <strong>{isRtl ? 'المدة:' : 'Duration:'} {selectedDuration?.months} {isRtl ? 'شهر' : 'months'}</strong>
+                    <strong>{isRtl ? 'إجمالي الفائدة:' : 'Total interest:'} {financingBreakdown.totalInterest.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'إجمالي المستحق:' : 'Total amount due:'} {financingBreakdown.totalAmountDue.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'القسط الشهري:' : 'Monthly installment:'} {financingBreakdown.monthlyInstallment.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                  </div>
+                : (isRtl
+                    ? 'أدخل سعر الدراجة والمقدم واختر شركة التمويل ومدة التقسيط لعرض الحساب.'
+                    : 'Enter the motorcycle price and down payment, then select a finance company and duration to see the calculation.')}
           </div>
           </div>
 
@@ -634,11 +819,31 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
               ? (isRtl ? 'تم حفظ الاستعلام. أرسله للمراجعة عند اكتمال البيانات.' : 'Inquiry saved. Send it for review when the data is complete.')
               : (isRtl ? 'تم حفظ الاستعلام دون حجز وحدة. سيتم تخصيص وحدة فعلية عند الموافقة على طلب التقسيط.' : 'Inquiry saved without reserving a unit. A physical unit will be allocated when the installment request is approved.')}
           </span>
-          <button className="premium-action-btn" style={{ background: 'linear-gradient(135deg, #047857, #059669)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(5,150,105,0.25)' }} onClick={async () => { try { await inquiries.sendForReview(savedInquiryId); navigate('/installment-requests'); } catch (err) { setError(err instanceof Error ? err.message : 'Failed to send for review'); } }}>
-            <CheckCircle2 size={18} /> {editingInquiryId ? (isRtl ? 'حفظ التعديلات' : 'Save changes') : (isRtl ? 'إرسال للمراجعة' : 'Send for Review')}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            {lastSavedInquiry && (
+              <>
+                <button
+                  type="button"
+                  className="secondary-action"
+                  disabled={openingWhatsAppInquiryId === lastSavedInquiry.id}
+                  onClick={() => openInquiryWhatsApp(lastSavedInquiry)}
+                >
+                  <MessageCircle size={16} /> {isRtl ? 'إرسال عبر واتساب' : 'Send via WhatsApp'}
+                </button>
+                <button type="button" className="secondary-action" onClick={() => printInquiryPdf(lastSavedInquiry)}>
+                  <FileDown size={16} /> {isRtl ? 'طباعة / حفظ PDF' : 'Print / Save PDF'}
+                </button>
+              </>
+            )}
+            <button className="premium-action-btn" style={{ background: 'linear-gradient(135deg, #047857, #059669)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(5,150,105,0.25)' }} onClick={async () => { try { await inquiries.sendForReview(savedInquiryId); navigate('/installment-requests'); } catch (err) { setError(err instanceof Error ? err.message : 'Failed to send for review'); } }}>
+              <CheckCircle2 size={18} /> {editingInquiryId ? (isRtl ? 'حفظ التعديلات' : 'Save changes') : (isRtl ? 'إرسال للمراجعة' : 'Send for Review')}
+            </button>
+          </div>
         </div>
       )}
+      <p style={{ marginTop: '-0.75rem', marginBottom: '1.25rem', color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
+        {isRtl ? 'تتضمن رسالة واتساب تفاصيل الاستعلام المتاحة وحالة المستندات فقط، ولا تتم مشاركة الملفات تلقائياً. راجع الرسالة واضغط إرسال بنفسك.' : 'The WhatsApp message includes available inquiry details and document statuses only. Files are not shared automatically; review the message and press Send yourself.'}
+      </p>
 
       {inquiriesQuery.isLoading && <DataTableState kind="loading" lang={lang} />}
       {!inquiriesQuery.isLoading && inquiriesQuery.data?.length === 0 && <DataTableState kind="empty" lang={lang} />}
@@ -671,8 +876,17 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button type="button" className="secondary-action" onClick={() => navigate(`/inquiries/${inquiry.id}`)}>
+                    <Eye size={15} /> {isRtl ? 'التفاصيل' : 'Details'}
+                  </button>
                   <button type="button" className="secondary-action" onClick={() => editInquiry(inquiry)}>
                     <PenTool size={15} /> {isRtl ? 'تعديل' : 'Edit'}
+                  </button>
+                  <button type="button" className="secondary-action" disabled={openingWhatsAppInquiryId === inquiry.id} onClick={() => openInquiryWhatsApp(inquiry)}>
+                    <MessageCircle size={15} /> {isRtl ? 'إرسال عبر واتساب' : 'Send via WhatsApp'}
+                  </button>
+                  <button type="button" className="secondary-action" onClick={() => printInquiryPdf(inquiry)}>
+                    <FileDown size={15} /> {isRtl ? 'PDF' : 'PDF'}
                   </button>
                   <span style={{ padding: '0.3rem 0.75rem', borderRadius: '99px', fontSize: '0.72rem', fontWeight: 700, background: '#eff6ff', color: 'var(--blue-dark)', border: '1px solid #bfdbfe', whiteSpace: 'nowrap' }}>
                     {docTypeLabels[inquiry.documentType]}

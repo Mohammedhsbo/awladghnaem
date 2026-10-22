@@ -16,6 +16,7 @@ const PAGE_LABELS: Record<string, { en: string; ar: string }> = {
   'offline-sync':       { en: 'Offline Sync', ar: 'المزامنة' },
   history:              { en: 'Transaction History', ar: 'سجل المعاملات' },
   inventory:            { en: 'Inventory', ar: 'المخزون' },
+  brands:               { en: 'Motorcycle brands', ar: 'الماركات التجارية' },
   transfers:            { en: 'Transfers', ar: 'التحويلات' },
   customers:            { en: 'Customers', ar: 'العملاء' },
   inquiries:            { en: 'Inquiries', ar: 'الاستعلامات' },

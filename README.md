@@ -12,8 +12,12 @@ the shared TypeScript contracts used by the client.
 ## Local development
 
 1. Install dependencies with `pnpm install`.
-2. Copy `.env.example` to `.env` and set `VITE_API_URL` to the API base URL.
+2. Copy `.env.example` to `.env` if you want to override the default API URL.
 3. Start Vite with `pnpm dev`.
+
+The renderer runs at `http://localhost:5174` and uses the Railway API by
+default. Set `VITE_API_URL` to `https://api-production-2c752.up.railway.app/api/v1`
+to configure it explicitly.
 
 `VITE_API_URL` is embedded in the renderer bundle and must be a public URL. Do
 not place backend credentials or other secrets in `VITE_*` variables.

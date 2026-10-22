@@ -15,10 +15,7 @@ import type {
   QueueOfflineOperationDto,
 } from '../../../packages/shared-types/src/pos';
 
-const configuredApiUrl = import.meta.env.VITE_API_URL;
-if (!configuredApiUrl) {
-  throw new Error('VITE_API_URL must be configured before starting the desktop app.');
-}
+const configuredApiUrl = import.meta.env.VITE_API_URL || 'https://api-production-2c752.up.railway.app/api/v1';
 const API_BASE = normalizeApiBase(configuredApiUrl);
 
 export function getApiErrorMessage(reason: unknown, fallback = 'Request failed') {
@@ -119,16 +116,25 @@ export function getUser(): DesktopUser | null {
 }
 export function clearUser() { localStorage.removeItem('pos_user'); }
 
-async function refreshAccessToken() {
-  const response = await fetch(`${API_BASE}/auth/refresh`, {
-    method: 'POST',
-    credentials: 'include',
-  });
-  if (!response.ok) throw new Error('Session refresh failed');
-  const json = await response.json();
-  const token = json.data?.accessToken;
-  if (!token) throw new Error('Session refresh returned no access token');
-  setToken(token);
+let refreshPromise: Promise<void> | null = null;
+
+function refreshAccessToken(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const response = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Session refresh failed');
+      const json = await response.json();
+      const token = json.data?.accessToken;
+      if (!token) throw new Error('Session refresh returned no access token');
+      setToken(token);
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}, canRefresh = true): Promise<T> {
@@ -334,6 +340,7 @@ export interface CustomerDetail {
   phone: string;
   email?: string;
   nationalId?: string;
+  occupationAddress?: string | null;
   notes?: string;
   isActive: boolean;
   addresses: Array<{
@@ -354,6 +361,7 @@ export interface CustomerInput {
   phone: string;
   email?: string;
   nationalId?: string;
+  occupationAddress?: string;
   notes?: string;
 }
 
@@ -449,6 +457,28 @@ export interface BrandSummary {
   isActive?: boolean;
 }
 
+export interface BrandRecord extends BrandSummary {
+  logo?: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { motorcycles: number };
+}
+
+export interface BrandInput {
+  nameAr: string;
+  nameEn: string;
+  sortOrder?: number;
+}
+
+export interface BrandUpdateInput {
+  nameAr?: string;
+  nameEn?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
 export interface CategorySummary {
   id: string;
   nameEn: string;
@@ -465,6 +495,19 @@ export const brands = {
     if (params?.isActive !== undefined) query.set('isActive', String(params.isActive));
     return apiFetch<BrandSummary[]>(`/brands?${query}`);
   },
+  listAll: async () => {
+    const [active, inactive] = await Promise.all([
+      apiFetch<BrandRecord[]>('/brands?isActive=true'),
+      apiFetch<BrandRecord[]>('/brands?isActive=false'),
+    ]);
+    return [...active, ...inactive].sort((a, b) => a.sortOrder - b.sortOrder || a.nameEn.localeCompare(b.nameEn));
+  },
+  create: (data: BrandInput) =>
+    apiFetch<BrandRecord>('/brands', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: BrandUpdateInput) =>
+    apiFetch<BrandRecord>(`/brands/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) =>
+    apiFetch<void>(`/brands/${id}`, { method: 'DELETE' }),
 };
 
 export const categories = {
@@ -1128,6 +1171,8 @@ export interface FinancingCompanyRecord {
   nameAr?: string;
   nameEn?: string;
   whatsappNumber: string;
+  annualInterestRate: number;
+  administrativeFees?: number;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;
@@ -1137,6 +1182,8 @@ export interface FinancingCompanyRecord {
 export interface FinancingCompanyInput {
   name: string;
   whatsappNumber: string;
+  annualInterestRate: number;
+  administrativeFees: number;
   isActive?: boolean;
   sortOrder?: number;
 }
@@ -1205,9 +1252,27 @@ export interface InquiryRecord {
   guarantorSignatureImage?: string;
   electricityLetterUploaded: boolean;
   downPayment?: number;
+  motorcyclePrice?: number | null;
+  annualInterestRate?: number | null;
+  financedAmount?: number | null;
+  totalInterest?: number | null;
+  totalAmountDue?: number | null;
+  monthlyInstallment?: number | null;
+  financingBreakdown?: {
+    motorcyclePrice: number;
+    downPayment: number;
+    annualInterestRate: number;
+    durationMonths: number;
+    financedAmount: number;
+    totalInterest: number;
+    totalAmountDue: number;
+    monthlyInstallment: number;
+  } | null;
   motorcycleId?: string;
   financingCompanyId?: string;
   installmentDurationId?: string;
+  financingCompany?: { name: string; annualInterestRate: number } | null;
+  installmentDuration?: { months: number } | null;
   requestedMotorcycle?: InquiryMotorcycleOption | null;
   motorcycle?: MotorcycleSearchResult;
   createdBy?: string;
@@ -1231,6 +1296,7 @@ export interface InquiryInput {
   secondGuarantorOccupation?: string;
   secondGuarantorOccupationAddress?: string;
   downPayment?: number;
+  motorcyclePrice?: number | null;
   motorcycleId?: string;
   requestedMotorcycle?: InquiryMotorcycleSelection | null;
   documentImage?: File;
@@ -1278,6 +1344,7 @@ function inquiryFormData(input: InquiryInput) {
     if (value !== undefined) form.set(field, value);
   }
   if (input.downPayment !== undefined) form.set('downPayment', String(input.downPayment));
+  if (input.motorcyclePrice !== undefined) form.set('motorcyclePrice', input.motorcyclePrice == null ? '' : String(input.motorcyclePrice));
   if (input.motorcycleId) form.set('motorcycleId', input.motorcycleId);
   if (input.requestedMotorcycle !== undefined) form.set('requestedMotorcycle', JSON.stringify(input.requestedMotorcycle));
   if (input.financingCompanyId) form.set('financingCompanyId', input.financingCompanyId);
@@ -1309,6 +1376,7 @@ export const installmentDurations = {
 
 export const inquiries = {
   list: () => apiFetch<InquiryRecord[]>('/inquiries'),
+  get: (id: string) => apiFetch<InquiryRecord>(`/inquiries/${id}`),
   motorcycleOptions: () => apiFetch<InquiryMotorcycleOption[]>('/inquiries/motorcycle-options'),
   create: (input: InquiryInput) => apiFetch<InquiryRecord>('/inquiries', { method: 'POST', body: inquiryFormData(input) }),
   update: (id: string, input: InquiryInput) => apiFetch<InquiryRecord>(`/inquiries/${id}`, { method: 'PATCH', body: inquiryFormData(input) }),
@@ -1322,6 +1390,7 @@ export const inquiries = {
   },
   downloadElectricityLetter: (id: string) => apiFetchBlob(`/inquiries/${id}/electricity-letter`),
   sendWhatsApp: (id: string) => apiFetch<{ phone: string; message: string }>(`/inquiries/${id}/send-whatsapp`, { method: 'POST' }),
+  whatsappMessage: (id: string) => apiFetch<{ phone: string; message: string }>(`/inquiries/${id}/whatsapp-message`),
   sendForReview: (id: string) => apiFetch<unknown>(`/inquiries/${id}/send-for-review`, { method: 'POST' }),
 };
 
@@ -1449,14 +1518,76 @@ export interface PosInstallment {
 
 export interface PosInstallmentPlanRecord {
   id: string;
+  orderId?: string | null;
   customerName: string;
   customerPhone: string;
+  customerEmail?: string | null;
+  buyerAddress?: string | null;
+  buyerOccupation?: string | null;
+  buyerOccupationAddress?: string | null;
+  documentType?: 'EMPLOYEE' | 'PENSION' | 'COMMERCIAL_REGISTRY' | 'NEITHER' | null;
+  firstGuarantorName?: string | null;
+  firstGuarantorPhone?: string | null;
+  firstGuarantorAddress?: string | null;
+  firstGuarantorOccupation?: string | null;
+  firstGuarantorOccupationAddress?: string | null;
+  secondGuarantorName?: string | null;
+  secondGuarantorPhone?: string | null;
+  secondGuarantorAddress?: string | null;
+  secondGuarantorOccupation?: string | null;
+  secondGuarantorOccupationAddress?: string | null;
   motorcycle: MotorcycleSearchResult;
+  financingCompany?: { id: string; name: string } | null;
   totalAmount: number;
   paidAmount: number;
   remainingBalance: number;
+  motorcyclePrice?: number | null;
+  downPayment?: number | null;
+  annualInterestRate?: number | null;
+  durationMonths?: number | null;
+  financedAmount?: number | null;
+  totalInterest?: number | null;
+  customerIdImageAvailable?: boolean;
+  documents?: Partial<Record<
+    'buyerIdFront' | 'buyerIdBack' | 'supportingDocument' |
+    'firstGuarantorIdFront' | 'firstGuarantorIdBack' |
+    'secondGuarantorIdFront' | 'secondGuarantorIdBack' |
+    'guarantorSignature' | 'electricityLetter',
+    boolean
+  >>;
   status: 'ACTIVE' | 'COMPLETED' | 'DEFAULTED';
   installments: PosInstallment[];
+}
+
+export interface DirectPosInstallmentInput {
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  address?: string;
+  occupation?: string;
+  occupationAddress?: string;
+  documentType: 'EMPLOYEE' | 'PENSION' | 'COMMERCIAL_REGISTRY' | 'NEITHER';
+  firstGuarantorName?: string;
+  firstGuarantorPhone?: string;
+  firstGuarantorAddress?: string;
+  firstGuarantorOccupation?: string;
+  firstGuarantorOccupationAddress?: string;
+  secondGuarantorName?: string;
+  secondGuarantorPhone?: string;
+  secondGuarantorAddress?: string;
+  secondGuarantorOccupation?: string;
+  secondGuarantorOccupationAddress?: string;
+  motorcycleId: string;
+  downPayment: number;
+  annualInterestRate: number;
+  durationMonths: number;
+  files: Partial<Record<
+    'documentImage' | 'idCardFrontImage' | 'idCardBackImage' |
+    'guarantorIdFrontImage' | 'guarantorIdBackImage' |
+    'guarantor2IdFrontImage' | 'guarantor2IdBackImage' |
+    'guarantorSignatureImage' | 'electricityLetter',
+    File
+  >>;
 }
 
 export const posInstallments = {
@@ -1471,6 +1602,35 @@ export const posInstallments = {
       method: 'POST',
       body: JSON.stringify(input)
     }),
+  createDirect: (input: DirectPosInstallmentInput) => {
+    const form = new FormData();
+    form.set('customerName', input.customerName);
+    form.set('customerPhone', input.customerPhone);
+    for (const field of [
+      'customerEmail', 'address', 'occupation', 'occupationAddress', 'documentType',
+      'firstGuarantorName', 'firstGuarantorPhone', 'firstGuarantorAddress',
+      'firstGuarantorOccupation', 'firstGuarantorOccupationAddress',
+      'secondGuarantorName', 'secondGuarantorPhone', 'secondGuarantorAddress',
+      'secondGuarantorOccupation', 'secondGuarantorOccupationAddress',
+    ] as const) {
+      const value = input[field];
+      if (value) form.set(field, value);
+    }
+    form.set('motorcycleId', input.motorcycleId);
+    form.set('downPayment', String(input.downPayment));
+    form.set('annualInterestRate', String(input.annualInterestRate));
+    form.set('durationMonths', String(input.durationMonths));
+    for (const [field, file] of Object.entries(input.files)) {
+      if (file) form.set(field, file);
+    }
+    return apiFetch<PosInstallmentPlanRecord>('/pos-installments/direct', {
+      method: 'POST',
+      body: form,
+    });
+  },
+  downloadCustomerIdImage: (id: string) => apiFetchBlob(`/pos-installments/${id}/customer-id-image`),
+  downloadDocument: (id: string, document: string) =>
+    apiFetchBlob(`/pos-installments/${id}/documents/${encodeURIComponent(document)}`),
 };
 
 // ─── Desktop Permissions ────────────────────────────────────────────
@@ -1568,6 +1728,11 @@ export interface InstallmentRequest {
   guarantorSignatureImage?: string | null;
   motorcyclePrice: number;
   downPayment: number;
+  annualInterestRate: number;
+  durationMonthsSnapshot: number;
+  financedAmount: number;
+  totalInterest: number;
+  totalAmountDue: number;
   monthlyInstallment: number;
   durationMonths?: number;
   installmentAmount?: number;
@@ -1575,7 +1740,7 @@ export interface InstallmentRequest {
   reviewedAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  customer?: any;
+  customer?: { id?: string; name?: string | null; phone?: string | null } | null;
   motorcycle?: {
     id: string;
     vin: string;

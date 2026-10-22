@@ -17,6 +17,7 @@ const T = {
     emailPlaceholder: 'customer@example.com',
     nationalId: 'National ID (optional)',
     nationalIdPlaceholder: '1234567890',
+    occupationAddress: 'Occupation address (optional)',
     notes: 'Notes (optional)',
     notesPlaceholder: 'Internal notes…',
     required: 'Required',
@@ -38,6 +39,7 @@ const T = {
     emailPlaceholder: 'customer@example.com',
     nationalId: 'رقم الهوية (اختياري)',
     nationalIdPlaceholder: '١٢٣٤٥٦٧٨٩٠',
+    occupationAddress: 'عنوان المهنة (اختياري)',
     notes: 'ملاحظات (اختياري)',
     notesPlaceholder: 'ملاحظات داخلية…',
     required: 'مطلوب',
@@ -67,6 +69,7 @@ export default function CustomerFormPOS({ lang, customer, onSuccess, onClose }: 
     phone: customer?.phone || '',
     email: customer?.email || '',
     nationalId: customer?.nationalId || '',
+    occupationAddress: customer?.occupationAddress || '',
     notes: customer?.notes || '',
   });
 
@@ -102,6 +105,7 @@ export default function CustomerFormPOS({ lang, customer, onSuccess, onClose }: 
       phone: form.phone.trim(),
       email: form.email?.trim() || undefined,
       nationalId: form.nationalId?.trim() || undefined,
+      occupationAddress: form.occupationAddress?.trim() ?? '',
       notes: form.notes?.trim() || undefined,
     };
 
@@ -240,6 +244,19 @@ export default function CustomerFormPOS({ lang, customer, onSuccess, onClose }: 
               value={form.nationalId}
               onChange={(e) => setForm((f) => ({ ...f, nationalId: e.target.value }))}
               placeholder={t.nationalIdPlaceholder}
+              className="pos-input"
+            />
+          </div>
+
+          {/* Occupation address is independent of the customer's residential addresses. */}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-2)' }}>
+              {t.occupationAddress}
+            </label>
+            <input
+              type="text"
+              value={form.occupationAddress ?? ''}
+              onChange={(e) => setForm((f) => ({ ...f, occupationAddress: e.target.value }))}
               className="pos-input"
             />
           </div>

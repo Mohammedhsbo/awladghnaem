@@ -53,8 +53,75 @@ export interface InstallmentRequestPrintData {
   documents: Array<{ label: string; url: string }>;
 }
 
+export interface DownPaymentReceiptData {
+  buyerName: string;
+  buyerPhone: string;
+  downPayment: number;
+  motorcycle?: { brand?: string | null; model?: string | null } | null;
+}
+
 function escapeHtml(value: unknown): string {
-  return String(value ?? '-').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
+  return String(value ?? '—').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
+}
+
+export function formatDownPaymentReceiptHTML(data: DownPaymentReceiptData, lang: 'en' | 'ar'): string {
+  if (!data.buyerName.trim() || !Number.isFinite(data.downPayment) || data.downPayment < 0) {
+    throw new Error('A valid customer name and saved down payment are required to print a receipt.');
+  }
+  const isRtl = lang === 'ar';
+  const label = (en: string, ar: string) => isRtl ? ar : en;
+  const currency = new Intl.NumberFormat(isRtl ? 'ar-EG' : 'en-GB', {
+    style: 'currency',
+    currency: 'EGP',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(data.downPayment);
+  const motorcycle = [data.motorcycle?.brand, data.motorcycle?.model].filter(Boolean).join(' · ');
+  const row = (name: string, value: unknown, className = 'row') =>
+    `<div class="${className}"><span>${escapeHtml(name)}</span><strong>${escapeHtml(value == null || String(value).trim() === '' ? '—' : value)}</strong></div>`;
+
+  return `<!doctype html>
+    <html lang="${lang}" dir="${isRtl ? 'rtl' : 'ltr'}">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>${escapeHtml(label('Down-payment receipt', 'إيصال استلام مقدم'))}</title>
+        <style>
+          * { box-sizing: border-box; }
+          @page { size: A5 portrait; margin: 20mm; }
+          body {
+            margin: 0;
+            color: #26364d;
+            background: #fff;
+            font-family: Arial, "Segoe UI", sans-serif;
+            font-size: 14px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .receipt { width: 100%; max-width: 620px; margin: 0 auto; padding: 20px; border: 2px solid #2849ad; border-radius: 12px; }
+          .header { text-align: center; border-bottom: 2px solid #2849ad; padding: 0 0 16px; margin-bottom: 14px; }
+          h1 { margin: 0; color: #2849ad; font-size: 22px; }
+          .row { display: grid; grid-template-columns: 40% 60%; gap: 12px; align-items: start; padding: 14px 8px; border-top: 1px solid #dce3ec; overflow-wrap: anywhere; }
+          .row strong { text-align: end; }
+          .amount { margin-top: 8px; border: 2px solid #2849ad; border-radius: 8px; background: #eff6ff; font-size: 18px; }
+          @media print {
+            .receipt { width: 100%; max-width: 95mm; margin: 0 auto; border: 0; border-radius: 0; padding: 0; }
+            .amount { background: transparent; }
+          }
+        </style>
+      </head>
+      <body>
+        <main class="receipt">
+          <header class="header">
+            <h1>${escapeHtml(label('Down-payment receipt', 'إيصال استلام مقدم'))}</h1>
+          </header>
+          ${row(label('Customer name', 'اسم العميل'), data.buyerName)}
+          ${row(label('Motorcycle', 'الموتوسيكل'), motorcycle)}
+          ${row(label('Phone number', 'رقم الهاتف'), data.buyerPhone)}
+          ${row(label('Down Payment', 'المقدم'), currency, 'row amount')}
+        </main>
+      </body>
+    </html>`;
 }
 
 export function formatInstallmentRequestHTML(data: InstallmentRequestPrintData, lang: 'en' | 'ar'): string {
