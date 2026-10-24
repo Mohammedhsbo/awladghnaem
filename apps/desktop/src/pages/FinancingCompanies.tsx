@@ -363,6 +363,7 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                 <input
                   type="number"
                   min={0}
+                  max={9999999999.99}
                   step="0.01"
                   value={form.administrativeFees}
                   onChange={e => setForm(f => ({ ...f, administrativeFees: e.target.value }))}

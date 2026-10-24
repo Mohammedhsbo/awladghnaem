@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Eye, FileDown, FileImage, MessageCircle, Plus, PenTool, CheckCircle2 } from 'lucide-react';
+import { Eye, FileImage, MessageCircle, Plus, PenTool, CheckCircle2 } from 'lucide-react';
 import { inquiries, financingCompanies, installmentDurations, type InquiryInput, type InquiryDocumentType, type InquiryMotorcycleOption, type InquiryRecord, getUser } from '../api';
 import { DataList, DataTableState } from '../components/DataTable';
 import { useViewingBranch } from '../contexts/ViewingBranchContext';
@@ -13,16 +13,6 @@ type InquiryImageField = 'documentImage' | 'idCardFrontImage' | 'idCardBackImage
 function isNewInquiryNavigation(state: unknown): boolean {
   return typeof state === 'object' && state !== null &&
     'openNewInquiry' in state && state.openNewInquiry === true;
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, character => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[character]!);
 }
 
 function calculateInquiryBreakdown(
@@ -44,39 +34,6 @@ function calculateInquiryBreakdown(
     totalAmountDue,
     monthlyInstallment: roundMoney(totalAmountDue / months),
   };
-}
-
-function inquiryPdfHtml(inquiry: InquiryRecord, lang: Lang) {
-  const labels = lang === 'ar'
-    ? { title: 'بيانات الاستعلام', name: 'اسم العميل', motorcycle: 'الموتوسيكل', phone: 'رقم الهاتف', downPayment: 'المقدم', unavailable: 'غير متاح' }
-    : { title: 'Inquiry Details', name: 'Customer Name', motorcycle: 'Motorcycle', phone: 'Phone Number', downPayment: 'Down Payment', unavailable: 'Not available' };
-  const motorcycle = inquiry.requestedMotorcycle
-    ? [
-        lang === 'ar' ? inquiry.requestedMotorcycle.brandNameAr : inquiry.requestedMotorcycle.brandNameEn,
-        lang === 'ar' ? inquiry.requestedMotorcycle.categoryNameAr : inquiry.requestedMotorcycle.categoryNameEn,
-        inquiry.requestedMotorcycle.model,
-      ].filter(Boolean).join(' · ')
-    : inquiry.motorcycle
-      ? [
-          lang === 'ar' ? inquiry.motorcycle.brand.nameAr : inquiry.motorcycle.brand.nameEn,
-          lang === 'ar' ? inquiry.motorcycle.category?.nameAr : inquiry.motorcycle.category?.nameEn,
-          inquiry.motorcycle.model,
-        ].filter(Boolean).join(' · ')
-        : null;
-  const currency = (amount: number | undefined) => amount == null || !Number.isFinite(amount)
-    ? labels.unavailable
-    : new Intl.NumberFormat(lang === 'ar' ? 'ar-EG' : 'en-GB', { style: 'currency', currency: 'EGP' }).format(amount);
-  const downPayment = inquiry.downPayment ?? inquiry.financingBreakdown?.downPayment;
-  const row = (label: string, value: string) =>
-    `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value || labels.unavailable)}</td></tr>`;
-  return `<!doctype html><html lang="${lang}" dir="${lang === 'ar' ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"><title>${escapeHtml(labels.title)}</title><style>
-    @page{size:A4;margin:18mm}*{box-sizing:border-box}body{font-family:Arial,"Segoe UI",sans-serif;color:#17243a;line-height:1.55;margin:0;font-size:12pt}h1{color:#1e40af;border-bottom:3px solid #1e40af;padding-bottom:12px;margin:0 0 18px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #dbe3ef;padding:12px 14px;text-align:start;vertical-align:top}th{width:35%;background:#f3f7fc;font-weight:700}td{white-space:pre-wrap;overflow-wrap:anywhere}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body>
-    <h1>${escapeHtml(labels.title)}</h1><table><tbody>
-        ${row(labels.name, inquiry.customerName)}
-        ${row(labels.motorcycle, motorcycle ?? '')}
-        ${row(labels.phone, inquiry.customerPhone)}
-        ${row(labels.downPayment, currency(downPayment))}
-    </tbody></table></body></html>`;
 }
 
 function InquiryImageUpload({ label, file, savedUrl, required, onChange }: {
@@ -127,6 +84,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     customerPhone: string;
     address: string;
     occupation: string;
+    occupationAddress: string;
     firstGuarantorName: string;
     firstGuarantorPhone: string;
     firstGuarantorAddress: string;
@@ -148,6 +106,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     customerPhone: '',
     address: '',
     occupation: '',
+    occupationAddress: '',
     firstGuarantorName: '',
     firstGuarantorPhone: '',
     firstGuarantorAddress: '',
@@ -219,7 +178,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     setEditingInquiryId(null);
     setLinkMotorcycle(false);
     setSavedImageUrls({});
-    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', motorcyclePrice: '', downPayment: '', requestedMotorcycle: null, financingCompanyId: '', installmentDurationId: '' });
+    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', occupationAddress: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', motorcyclePrice: '', downPayment: '', requestedMotorcycle: null, financingCompanyId: '', installmentDurationId: '' });
     setDocumentImage(null);
     setIdCardFrontImage(null);
     setIdCardBackImage(null);
@@ -283,6 +242,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       customerPhone: inquiry.customerPhone,
       address: inquiry.address ?? '',
       occupation: inquiry.occupation ?? '',
+      occupationAddress: inquiry.occupationAddress ?? '',
       firstGuarantorName: inquiry.firstGuarantorName ?? '',
       firstGuarantorPhone: inquiry.firstGuarantorPhone ?? '',
       firstGuarantorAddress: inquiry.firstGuarantorAddress ?? '',
@@ -301,21 +261,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       installmentDurationId: inquiry.installmentDurationId ?? '',
     });
     setShowForm(true);
-  }
-
-  function printInquiryPdf(inquiry: InquiryRecord) {
-    setActionError(null);
-    setActionNotice(null);
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      setActionError(isRtl ? 'تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.' : 'Could not open the print window. Allow pop-ups and try again.');
-      return;
-    }
-    printWindow.document.open();
-    printWindow.document.write(inquiryPdfHtml(inquiry, lang));
-    printWindow.document.close();
-    printWindow.focus();
-    window.setTimeout(() => printWindow.print(), 250);
   }
 
   function openInquiryWhatsApp(inquiry: InquiryRecord) {
@@ -514,6 +459,10 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
               <label>
                 <span>{isRtl ? 'المهنة' : 'Occupation'} *</span>
                 <input required value={form.occupation} onChange={e => setForm({ ...form, occupation: e.target.value })} />
+              </label>
+              <label>
+                <span>{isRtl ? 'عنوان المهنة' : 'Occupation Address'}</span>
+                <input value={form.occupationAddress} onChange={e => setForm({ ...form, occupationAddress: e.target.value })} />
               </label>
             </>}
             
@@ -830,9 +779,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
                 >
                   <MessageCircle size={16} /> {isRtl ? 'إرسال عبر واتساب' : 'Send via WhatsApp'}
                 </button>
-                <button type="button" className="secondary-action" onClick={() => printInquiryPdf(lastSavedInquiry)}>
-                  <FileDown size={16} /> {isRtl ? 'طباعة / حفظ PDF' : 'Print / Save PDF'}
-                </button>
               </>
             )}
             <button className="premium-action-btn" style={{ background: 'linear-gradient(135deg, #047857, #059669)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(5,150,105,0.25)' }} onClick={async () => { try { await inquiries.sendForReview(savedInquiryId); navigate('/installment-requests'); } catch (err) { setError(err instanceof Error ? err.message : 'Failed to send for review'); } }}>
@@ -884,9 +830,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
                   </button>
                   <button type="button" className="secondary-action" disabled={openingWhatsAppInquiryId === inquiry.id} onClick={() => openInquiryWhatsApp(inquiry)}>
                     <MessageCircle size={15} /> {isRtl ? 'إرسال عبر واتساب' : 'Send via WhatsApp'}
-                  </button>
-                  <button type="button" className="secondary-action" onClick={() => printInquiryPdf(inquiry)}>
-                    <FileDown size={15} /> {isRtl ? 'PDF' : 'PDF'}
                   </button>
                   <span style={{ padding: '0.3rem 0.75rem', borderRadius: '99px', fontSize: '0.72rem', fontWeight: 700, background: '#eff6ff', color: 'var(--blue-dark)', border: '1px solid #bfdbfe', whiteSpace: 'nowrap' }}>
                     {docTypeLabels[inquiry.documentType]}

@@ -154,6 +154,7 @@ export function buildInquiryWhatsAppMessage(inquiry: InquiryRecord): string {
       ['رقم الهاتف', present(inquiry.customerPhone)],
       ['العنوان', present(inquiry.address)],
       ['المهنة', present(inquiry.occupation)],
+      ['عنوان المهنة', present(inquiry.occupationAddress)],
       ['نوع المستند', documentTypeLabels[inquiry.documentType]],
     ]),
     '',

@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, Edit3, ExternalLink, MessageCircle, Save, Trash2, User, Bike, FileImage, Printer } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { buildWhatsAppUrl as createWhatsAppUrl, normalizeWhatsAppPhone } from '../../../../packages/shared-types/src/whatsapp';
 import { customerFinancing, inquiries, type InstallmentRequest } from '../api';
 import { formatDownPaymentReceiptHTML, formatInstallmentRequestHTML } from '../utils/receiptFormatter';
 
 function buildWhatsAppUrl(phone: string, message: string) {
-  const cleanPhone = phone.replace(/\D/g, '');
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  const cleanPhone = normalizeWhatsAppPhone(phone).replace(/\D/g, '');
+  if (!/^\d{8,15}$/.test(cleanPhone)) return null;
+  const url = createWhatsAppUrl(phone, message);
+  return url.length <= 8000 ? url : `https://wa.me/${cleanPhone}`;
 }
 
 const statusStyles: Record<string, { bg: string; color: string; border: string; label: string }> = {
@@ -31,6 +34,9 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
   const [editing, setEditing] = useState(false);
   const [selectedMotorcycleId, setSelectedMotorcycleId] = useState('');
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [whatsappError, setWhatsappError] = useState<string | null>(null);
+  const [whatsappPreview, setWhatsappPreview] = useState<{ phone: string; message: string } | null>(null);
+  const [whatsappNotice, setWhatsappNotice] = useState<string | null>(null);
   const [form, setForm] = useState({ buyerName: '', buyerPhone: '', financingCompanyId: '', downPayment: '' });
 
   const query = useQuery<InstallmentRequest>({
@@ -87,7 +93,42 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
     },
   });
   const remove = useMutation({ mutationFn: () => customerFinancing.deleteRequest(id!), onSuccess: () => navigate('/installment-requests') });
-  const whatsapp = useMutation({ mutationFn: () => customerFinancing.getWhatsAppMessage(id!), onSuccess: ({ phone, message }) => window.open(buildWhatsAppUrl(phone, message), '_blank') });
+  const whatsapp = useMutation({
+    mutationFn: () => customerFinancing.getWhatsAppMessage(id!),
+    onSuccess: ({ phone, message }) => {
+      setWhatsappPreview({ phone, message });
+      setWhatsappNotice(null);
+      setWhatsappError(null);
+    },
+    onError: (error: Error) => setWhatsappError(`${error.message} ${isRtl ? 'يمكنك تصحيح الرقم من إعدادات شركة التمويل.' : 'Update the number in financing-company settings.'}`),
+  });
+  const openWhatsApp = () => {
+    if (!whatsappPreview) return;
+    const url = buildWhatsAppUrl(whatsappPreview.phone, whatsappPreview.message);
+    if (!url) {
+      setWhatsappError(isRtl ? 'رقم واتساب شركة التمويل غير صالح. صحح الرقم من إعدادات شركة التمويل.' : 'The financing company WhatsApp number is invalid. Update it in financing-company settings.');
+      return;
+    }
+    const messageIsTooLong = !url.includes('?text=');
+    const whatsappWindow = window.open(url, '_blank');
+    if (!whatsappWindow) {
+      setWhatsappNotice(isRtl ? 'تعذر فتح واتساب. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.' : 'WhatsApp could not be opened. Allow pop-ups and try again.');
+      return;
+    }
+    whatsappWindow.opener = null;
+    setWhatsappNotice(messageIsTooLong
+      ? (isRtl ? 'الرسالة طويلة للرابط. تم فتح محادثة الشركة؛ انسخ النص أعلاه والصقه في واتساب ثم أرسله.' : 'The message is too long for a link. The company chat is open; copy the message above, paste it into WhatsApp, and send it.')
+      : (isRtl ? 'تم فتح واتساب برسالة جاهزة للمراجعة. اضغط إرسال داخل واتساب لإرسالها.' : 'WhatsApp opened with the message ready for review. Press Send in WhatsApp to send it.'));
+  };
+  const copyWhatsAppMessage = async () => {
+    if (!whatsappPreview) return;
+    try {
+      await navigator.clipboard.writeText(whatsappPreview.message);
+      setWhatsappNotice(isRtl ? 'تم نسخ الرسالة.' : 'Message copied.');
+    } catch {
+      setWhatsappNotice(isRtl ? 'تعذر النسخ تلقائياً. حدد النص وانسخه يدوياً.' : 'Could not copy automatically. Select and copy the message manually.');
+    }
+  };
 
   if (query.isLoading) return (
     <section className="desktop-page" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -258,8 +299,8 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
 
       {/* Action Buttons */}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-        <button className="premium-action-btn solid" onClick={() => whatsapp.mutate()} disabled={whatsapp.isPending || !request.motorcycle}>
-          <MessageCircle size={17} /> {isRtl ? ' إرسال عبر واتساب الى شركه التمويل ' : 'Send via WhatsApp to financing company'}
+        <button className="premium-action-btn solid" style={{ background: '#25D366', borderColor: '#25D366', color: '#fff', direction: isRtl ? 'rtl' : 'ltr' }} onClick={() => whatsapp.mutate()} disabled={whatsapp.isPending}>
+          <MessageCircle size={17} /> {isRtl ? 'إرسال لشركة التمويل عبر واتساب' : 'Send to financing company via WhatsApp'}
         </button>
         <button className="premium-action-btn outline" onClick={printRequest}>
           <Printer size={17} /> {isRtl ? 'طباعة الطلب' : 'Print request'}
@@ -293,6 +334,23 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
           <Trash2 size={17} /> {isRtl ? 'حذف' : 'Delete'}
         </button>
       </div>
+      {whatsappError && <div className="state-panel" role="alert" style={{ marginBottom: '1.25rem' }}>{whatsappError}</div>}
+      {whatsappPreview && (
+        <div role="presentation" onClick={() => setWhatsappPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', padding: '1rem' }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="whatsapp-preview-title" dir={isRtl ? 'rtl' : 'ltr'} onClick={event => event.stopPropagation()} style={{ width: 'min(720px, 100%)', maxHeight: '90vh', overflow: 'auto', background: '#fff', borderRadius: 16, padding: '1.25rem', boxShadow: '0 20px 60px rgba(15,23,42,0.28)' }}>
+            <h2 id="whatsapp-preview-title" style={{ margin: '0 0 0.5rem', fontSize: '1.15rem' }}>{isRtl ? 'مراجعة رسالة واتساب' : 'Review WhatsApp message'}</h2>
+            <p style={{ margin: '0 0 0.75rem', color: 'var(--text-secondary)' }}>{isRtl ? 'المستلم' : 'Recipient'}: <strong>{request.financingCompany?.name}</strong> · {whatsappPreview.phone}</p>
+            <p style={{ margin: '0 0 0.75rem', color: '#9a3412', fontSize: '0.88rem' }}>{isRtl ? 'تتضمن الرسالة بيانات شخصية سرية وستُفتح في واتساب للمراجعة. لن تُرسل حتى تضغط إرسال هناك.' : 'This message contains sensitive personal information and will open in WhatsApp for review. It will not be sent until you press Send there.'}</p>
+            <textarea readOnly value={whatsappPreview.message} aria-label={isRtl ? 'نص رسالة واتساب' : 'WhatsApp message text'} onFocus={event => event.currentTarget.select()} style={{ width: '100%', minHeight: 320, boxSizing: 'border-box', direction: 'rtl', textAlign: 'right', fontFamily: 'inherit', lineHeight: 1.6, padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: 10, resize: 'vertical' }} />
+            {whatsappNotice && <p role="status" style={{ margin: '0.65rem 0', color: 'var(--text-secondary)' }}>{whatsappNotice}</p>}
+            <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
+              <button className="premium-action-btn solid" type="button" style={{ background: '#25D366', borderColor: '#25D366', color: '#fff' }} onClick={openWhatsApp}><MessageCircle size={16} /> {isRtl ? 'فتح واتساب' : 'Open WhatsApp'}</button>
+              <button className="premium-action-btn outline" type="button" onClick={() => void copyWhatsAppMessage()}>{isRtl ? 'نسخ الرسالة' : 'Copy message'}</button>
+              <button className="premium-action-btn outline" type="button" onClick={() => setWhatsappPreview(null)}>{isRtl ? 'إغلاق' : 'Close'}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {receiptError && (
         <div className="state-panel" role="alert" style={{ marginBottom: '1.25rem' }}>
           {receiptError}

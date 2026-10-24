@@ -1232,6 +1232,7 @@ export interface InquiryRecord {
   documentType: InquiryDocumentType;
   address?: string | null;
   occupation?: string | null;
+  occupationAddress?: string | null;
   firstGuarantorName?: string | null;
   firstGuarantorPhone?: string | null;
   firstGuarantorAddress?: string | null;
@@ -1285,6 +1286,7 @@ export interface InquiryInput {
   documentType: InquiryDocumentType;
   address?: string;
   occupation?: string;
+  occupationAddress?: string;
   firstGuarantorName?: string;
   firstGuarantorPhone?: string;
   firstGuarantorAddress?: string;
@@ -1329,6 +1331,7 @@ function inquiryFormData(input: InquiryInput) {
   for (const field of [
     'address',
     'occupation',
+    'occupationAddress',
     'firstGuarantorName',
     'firstGuarantorPhone',
     'firstGuarantorAddress',

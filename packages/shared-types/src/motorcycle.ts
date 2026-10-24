@@ -11,8 +11,8 @@ export enum MotorcycleFuelType {
 
 export const motorcycleFuelTypeSchema = z.nativeEnum(MotorcycleFuelType);
 
-const vinSchema = z.string().trim().min(1).max(50).regex(/^[A-HJ-NPR-Z0-9-]+$/, {
-  message: "VIN must contain only uppercase letters (excluding I, O and Q), digits and hyphens",
+const vinSchema = z.string().trim().min(1).max(50).regex(/^[A-Z0-9-]+$/, {
+  message: "VIN must contain only uppercase English letters, digits and hyphens",
 });
 const engineNumberSchema = z
   .string({ required_error: "رقم الموتور مطلوب." })

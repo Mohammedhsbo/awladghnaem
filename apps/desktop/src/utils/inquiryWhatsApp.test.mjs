@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { buildWhatsAppUrl } from '../../../../packages/shared-types/src/whatsapp.ts';
 import {
   buildInquiryWhatsAppMessage,
   buildInquiryWhatsAppUrl,
@@ -31,6 +32,7 @@ test('builds an encoded WhatsApp URL with the complete reviewable inquiry messag
   const fullInquiry = inquiry({
     address: 'القاهرة',
     occupation: 'مهندسة',
+    occupationAddress: 'مدينة نصر',
     firstGuarantorName: 'أحمد علي',
     firstGuarantorPhone: '01112345678',
     firstGuarantorAddress: 'الجيزة',
@@ -81,6 +83,7 @@ test('builds an encoded WhatsApp URL with the complete reviewable inquiry messag
   assert.equal(decodeURIComponent(url.split('?text=')[1]), message);
   assert.match(message, /بيانات المشتري/);
   assert.match(message, /المهنة: مهندسة/);
+  assert.match(message, /عنوان المهنة: مدينة نصر/);
   assert.match(message, /هوندا/);
   assert.match(message, /رقم الاستعلام: inquiry-123/);
   assert.match(message, /أحمد علي/);
@@ -112,4 +115,12 @@ test('omits missing guarantors and unavailable financing amounts', () => {
 
 test('returns no WhatsApp URL for an invalid recipient number', () => {
   assert.equal(buildInquiryWhatsAppUrl('1234', 'رسالة'), null);
+});
+
+test('encodes Arabic and mixed-script WhatsApp message text without truncation', () => {
+  const message = 'طلب تمويل جديد - Honda 2026\nالقسط: ٥٬٦٦٦٫٦٧ جنيه';
+  const url = buildWhatsAppUrl('01012345678', message);
+
+  assert.equal(url, `https://wa.me/201012345678?text=${encodeURIComponent(message)}`);
+  assert.equal(decodeURIComponent(url.split('?text=')[1]), message);
 });

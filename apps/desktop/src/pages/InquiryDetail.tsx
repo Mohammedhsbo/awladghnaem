@@ -167,6 +167,7 @@ export default function InquiryDetail({ lang }: { lang: Lang }) {
         <InquiryField label={t('Phone', 'الهاتف')} value={inquiry.customerPhone} />
         <InquiryField label={t('Address', 'العنوان')} value={inquiry.address} />
         <InquiryField label={t('Occupation', 'المهنة')} value={inquiry.occupation} />
+        <InquiryField label={t('Occupation address', 'عنوان المهنة')} value={inquiry.occupationAddress} />
         <InquiryField label={t('Document type', 'نوع المستند')} value={documentTypeLabel[inquiry.documentType]} />
         <InquiryField label={t('Created at', 'تاريخ الإنشاء')} value={new Date(inquiry.createdAt).toLocaleString(locale)} />
       </InquirySection>
