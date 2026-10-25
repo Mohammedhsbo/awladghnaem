@@ -14,6 +14,7 @@ const emptyForm = (branchId?: string): MotorcycleInput => ({
   model: '',
   year: new Date().getFullYear(),
   color: '',
+  engineSize: '',
   price: 0,
   costPrice: 0,
   brandId: '',
@@ -46,6 +47,7 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
       model: detail.data.model,
       year: detail.data.year,
       color: detail.data.color ?? '',
+      engineSize: detail.data.engineSize ?? '',
       price: detail.data.price,
       costPrice: detail.data.costPrice ?? 0,
       brandId: detail.data.brand?.id ?? '',
@@ -69,6 +71,7 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
       model: String(data.model ?? '').trim(),
       year: Number(data.year || new Date().getFullYear()),
       color: String(data.color ?? '').trim(),
+      engineSize: String(data.engineSize ?? '').trim(),
       price: Number(data.price ?? 0),
       costPrice: Number(data.costPrice ?? 0),
       brandId: String(data.brandId ?? '').trim(),
@@ -194,6 +197,11 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
           <label className="field-label">
             <span>{isRtl ? 'اللون' : 'Color'}</span>
             <input className="text-input" value={form.color ?? ''} onChange={event => setForm(current => ({ ...current, color: event.target.value }))} />
+          </label>
+
+          <label className="field-label">
+            <span>{isRtl ? 'حجم المحرك' : 'Engine capacity'}</span>
+            <input className="text-input" value={form.engineSize ?? ''} onChange={event => setForm(current => ({ ...current, engineSize: event.target.value }))} maxLength={20} />
           </label>
 
           <label className="field-label">

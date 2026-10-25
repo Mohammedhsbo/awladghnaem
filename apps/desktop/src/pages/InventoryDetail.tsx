@@ -108,6 +108,10 @@ export default function InventoryDetail({ lang }: { lang: Lang }) {
                 <strong style={{ color: 'var(--blue)' }}>{data.engineNumber || (isRtl ? 'غير متوفر' : 'Not available')}</strong>
               </span>
               <span>
+                {isRtl ? 'حجم المحرك' : 'Engine capacity'}
+                <strong>{data.engineSize || (isRtl ? 'غير متوفر' : 'Not available')}</strong>
+              </span>
+              <span>
                 {isRtl ? 'نوع الوقود' : 'Fuel type'}
                 <strong>{data.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : data.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}</strong>
               </span>
