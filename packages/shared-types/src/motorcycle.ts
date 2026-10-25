@@ -11,6 +11,14 @@ export enum MotorcycleFuelType {
 
 export const motorcycleFuelTypeSchema = z.nativeEnum(MotorcycleFuelType);
 
+export enum MotorcycleCondition {
+  NEW = "NEW",
+  USED = "USED",
+  IMPORTED = "IMPORTED",
+}
+
+export const motorcycleConditionSchema = z.nativeEnum(MotorcycleCondition);
+
 const vinSchema = z.string().trim().min(1).max(50).regex(/^[A-Z0-9-]+$/, {
   message: "VIN must contain only uppercase English letters, digits and hyphens",
 });
@@ -45,6 +53,7 @@ export const createMotorcycleRequestSchema = z
     brandId: uuidSchema,
     categoryId: uuidSchema,
     branchId: uuidSchema,
+    condition: motorcycleConditionSchema.default(MotorcycleCondition.NEW),
     images: imagesSchema.default([]),
     status: motorcycleStatusSchema.optional(),
   })
@@ -65,6 +74,7 @@ export const updateMotorcycleRequestSchema = z
     costPrice: costPriceSchema.optional(),
     brandId: uuidSchema.optional(),
     categoryId: uuidSchema.optional(),
+    condition: motorcycleConditionSchema.optional(),
     images: imagesSchema.optional(),
   })
   .strict()
@@ -135,6 +145,7 @@ export interface Motorcycle {
   descriptionEn?: string | null;
   price: number;
   costPrice: number;
+  condition: MotorcycleCondition;
   status: MotorcycleStatus;
   images: string[];
   branchId: string;
@@ -154,6 +165,7 @@ export interface MotorcycleListItem {
   color?: string | null;
   engineSize?: string | null;
   price: number;
+  condition: MotorcycleCondition;
   brand: BrandSummary;
   category: CategorySummary;
   branch: BranchSummary;
@@ -210,6 +222,7 @@ export interface CreateMotorcycleResponse {
   descriptionEn?: string | null;
   price: number;
   costPrice: number;
+  condition: MotorcycleCondition;
   brand: BrandSummary;
   category: CategorySummary;
   branch: BranchSummary;

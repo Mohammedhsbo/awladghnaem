@@ -11,6 +11,7 @@ const emptyForm = (branchId?: string): MotorcycleInput => ({
   vin: '',
   engineNumber: '',
   fuelType: undefined,
+  condition: 'NEW',
   model: '',
   year: new Date().getFullYear(),
   color: '',
@@ -44,6 +45,7 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
       vin: detail.data.vin,
       engineNumber: detail.data.engineNumber ?? '',
       fuelType: detail.data.fuelType ?? undefined,
+      condition: detail.data.condition ?? 'NEW',
       model: detail.data.model,
       year: detail.data.year,
       color: detail.data.color ?? '',
@@ -68,6 +70,7 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
       vin: String(data.vin ?? '').trim(),
       engineNumber: String(data.engineNumber ?? '').trim(),
       fuelType: data.fuelType!,
+      condition: data.condition ?? 'NEW',
       model: String(data.model ?? '').trim(),
       year: Number(data.year || new Date().getFullYear()),
       color: String(data.color ?? '').trim(),
@@ -186,6 +189,15 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
               <option value="">{isRtl ? 'اختر نوع الوقود' : 'Select fuel type'}</option>
               <option value="PETROL">{isRtl ? 'بنزين' : 'Petrol'}</option>
               <option value="ELECTRIC">{isRtl ? 'كهرباء' : 'Electric'}</option>
+            </select>
+          </label>
+
+          <label className="field-label">
+            <span>{isRtl ? 'حالة الموتسيكل' : 'Motorcycle condition'}</span>
+            <select className="text-input" value={form.condition ?? 'NEW'} onChange={event => setForm(current => ({ ...current, condition: event.target.value as MotorcycleInput['condition'] }))}>
+              <option value="NEW">{isRtl ? 'زيرو' : 'New'}</option>
+              <option value="USED">{isRtl ? 'مستعمل' : 'Used'}</option>
+              {form.condition === 'IMPORTED' && <option value="IMPORTED">{isRtl ? 'مستورد' : 'Imported'}</option>}
             </select>
           </label>
 

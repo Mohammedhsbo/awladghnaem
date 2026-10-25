@@ -116,6 +116,10 @@ export default function InventoryDetail({ lang }: { lang: Lang }) {
                 <strong>{data.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : data.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}</strong>
               </span>
               <span>
+                {isRtl ? 'حالة الموتسيكل' : 'Motorcycle condition'}
+                <strong>{data.condition === 'NEW' ? (isRtl ? 'زيرو' : 'New') : data.condition === 'USED' ? (isRtl ? 'مستعمل' : 'Used') : data.condition === 'IMPORTED' ? (isRtl ? 'مستورد' : 'Imported') : (isRtl ? 'غير معروف' : 'Unknown')}</strong>
+              </span>
+              <span>
                 {isRtl ? 'سنة الصنع' : 'Year'}
                 <strong>{data.year}</strong>
               </span>

@@ -19,6 +19,7 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
   const [model, setModel] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
   const [color, setColor] = useState('');
+  const [condition, setCondition] = useState<'NEW' | 'USED'>('NEW');
   const [brandIdState, setBrandId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [supplierId, setSupplierId] = useState('');
@@ -103,6 +104,7 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
             color: color.trim(),
             price,
             costPrice,
+            condition,
             brandId: brandIdState,
             categoryId,
             branchId: selectedBranchId,
@@ -194,6 +196,13 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
             <label>
               <span>{isRtl ? 'سنة الصنع' : 'Year'}</span>
               <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} />
+            </label>
+            <label>
+              <span>{isRtl ? 'حالة الموتسيكل' : 'Motorcycle condition'}</span>
+              <select value={condition} onChange={e => setCondition(e.target.value as 'NEW' | 'USED')}>
+                <option value="NEW">{isRtl ? 'زيرو' : 'New'}</option>
+                <option value="USED">{isRtl ? 'مستعمل' : 'Used'}</option>
+              </select>
             </label>
             <label>
               <span>{isRtl ? 'سعر البيع *' : 'Price *'}</span>
