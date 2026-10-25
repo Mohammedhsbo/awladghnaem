@@ -68,6 +68,7 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
       fuelType: data.fuelType!,
       model: String(data.model ?? '').trim(),
       year: Number(data.year || new Date().getFullYear()),
+      color: String(data.color ?? '').trim(),
       price: Number(data.price ?? 0),
       costPrice: Number(data.costPrice ?? 0),
       brandId: String(data.brandId ?? '').trim(),

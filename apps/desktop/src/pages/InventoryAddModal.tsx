@@ -100,6 +100,7 @@ export default function InventoryAddModal({ lang, branchId, onClose }: { lang: L
             fuelType,
             model: model.trim(),
             year,
+            color: color.trim(),
             price,
             costPrice,
             brandId: brandIdState,

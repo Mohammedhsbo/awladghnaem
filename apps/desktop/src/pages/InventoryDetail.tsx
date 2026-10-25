@@ -125,7 +125,7 @@ export default function InventoryDetail({ lang }: { lang: Lang }) {
               </span>
               <span>
                 {isRtl ? 'سعر التكلفة' : 'Cost Price'}
-                <strong>{data.costPrice ? money(data.costPrice) : (isRtl ? 'غير متوفر' : 'N/A')}</strong>
+                <strong>{data.costPrice != null ? money(data.costPrice) : (isRtl ? 'غير متوفر' : 'N/A')}</strong>
               </span>
               <span>
                 {isRtl ? 'الفرع المتواجد به' : 'Current Branch'}

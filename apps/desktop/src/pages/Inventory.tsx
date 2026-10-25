@@ -80,6 +80,7 @@ export default function Inventory({ lang, branchId }: { lang: Lang; branchId?: s
                 <h2>{item.model}</h2>
                 <p>{item.year} · {item.color || (isRtl ? 'بدون لون' : 'No color')}</p>
                 <p>{isRtl ? 'نوع الوقود' : 'Fuel type'}: {item.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : item.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}</p>
+                <p>{isRtl ? 'سعر التكلفة' : 'Cost price'}: {item.costPrice != null ? money(item.costPrice) : (isRtl ? 'غير متوفر' : 'N/A')}</p>
                 <code title={item.vin} style={{ color: 'var(--blue)' }}>{item.vin}</code>
                 <div className="inventory-footer">
                   <strong>{money(item.price)}</strong>

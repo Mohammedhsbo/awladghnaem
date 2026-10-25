@@ -440,9 +440,9 @@ export interface MotorcycleSearchResult {
   fuelType?: MotorcycleFuelType | null;
   model: string;
   year: number;
-  color?: string;
+  color?: string | null;
   price: number;
-  costPrice?: number;
+  costPrice?: number | null;
   status: string;
   brand: { id: string; nameEn: string; nameAr: string };
   branch: { id: string; nameEn: string; nameAr: string };
@@ -534,7 +534,7 @@ export interface MotorcycleInput {
   images?: string[];
 }
 
-type MotorcycleCreatePayload = Required<Pick<MotorcycleInput, 'vin' | 'engineNumber' | 'fuelType' | 'model' | 'year' | 'price' | 'costPrice' | 'brandId' | 'categoryId' | 'branchId'>> & Pick<MotorcycleInput, 'images'>;
+type MotorcycleCreatePayload = Required<Pick<MotorcycleInput, 'vin' | 'engineNumber' | 'fuelType' | 'model' | 'year' | 'price' | 'costPrice' | 'brandId' | 'categoryId' | 'branchId'>> & Pick<MotorcycleInput, 'color' | 'images'>;
 
 export const motorcycles = {
   search: (params: { search?: string; branchId?: string; status?: string; limit?: number }) => {
