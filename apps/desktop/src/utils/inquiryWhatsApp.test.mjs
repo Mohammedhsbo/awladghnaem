@@ -63,17 +63,19 @@ test('builds an encoded WhatsApp URL with the complete reviewable inquiry messag
     },
     motorcyclePrice: 32000,
     downPayment: 25000,
-    financingCompany: { name: 'شركة التمويل', annualInterestRate: 25 },
+    financingCompany: { name: 'شركة التمويل', annualInterestRate: 25, administrativeFeesPercentage: 3.5 },
     installmentDuration: { months: 12 },
     financingBreakdown: {
       motorcyclePrice: 32000,
       downPayment: 25000,
       annualInterestRate: 25,
+      administrativeFeesPercentage: 3.5,
       durationMonths: 12,
       financedAmount: 7000,
       totalInterest: 1750,
-      totalAmountDue: 8750,
-      monthlyInstallment: 729.17,
+      administrativeFeesAmount: 245,
+      totalAmountDue: 8995,
+      monthlyInstallment: 749.58,
     },
   });
   const message = buildInquiryWhatsAppMessage(fullInquiry);
@@ -90,7 +92,10 @@ test('builds an encoded WhatsApp URL with the complete reviewable inquiry messag
   assert.match(message, /منى علي/);
   assert.match(message, /شركة التمويل/);
   assert.match(message, /المبلغ الممول: ٧٬٠٠٠ جنيه/);
-  assert.match(message, /القسط الشهري: ٧٢٩٫١٧ جنيه/);
+  assert.match(message, /نسبة المصاريف الإدارية: 3\.5%/);
+  assert.match(message, /قيمة المصاريف الإدارية: ٢٤٥ جنيه/);
+  assert.match(message, /إجمالي المبلغ المستحق: ٨٬٩٩٥ جنيه/);
+  assert.match(message, /القسط الشهري: ٧٤٩٫٥٨ جنيه/);
   assert.match(message, /تقديرية/);
   assert.match(message, /بطاقة المشتري - الوجه الأمامي: مرفق/);
   assert.match(message, /خطاب الكهرباء: مرفق/);

@@ -101,6 +101,10 @@ export function buildInquiryWhatsAppMessage(inquiry: InquiryRecord): string {
   const annualInterestRate = finiteNumber(breakdown?.annualInterestRate)
     ?? finiteNumber(inquiry.annualInterestRate)
     ?? finiteNumber(inquiry.financingCompany?.annualInterestRate);
+  const administrativeFeesPercentage = finiteNumber(breakdown?.administrativeFeesPercentage)
+    ?? finiteNumber(inquiry.administrativeFeesPercentage)
+    ?? finiteNumber(inquiry.financingCompany?.administrativeFeesPercentage)
+    ?? 0;
   const durationMonths = finiteNumber(breakdown?.durationMonths)
     ?? finiteNumber(inquiry.installmentDuration?.months);
   const financingLines = section(
@@ -109,9 +113,11 @@ export function buildInquiryWhatsAppMessage(inquiry: InquiryRecord): string {
       ['شركة التمويل', present(inquiry.financingCompany?.name)],
       ['المقدم', money(breakdown?.downPayment ?? inquiry.downPayment)],
       ['نسبة الفائدة السنوية', annualInterestRate == null ? null : `${annualInterestRate}%`],
+      ['نسبة المصاريف الإدارية', `${administrativeFeesPercentage}%`],
       ['مدة التقسيط', durationMonths == null ? null : `${durationMonths} شهرًا`],
       ['المبلغ الممول', money(breakdown?.financedAmount)],
-      ['إجمالي الفائدة', money(breakdown?.totalInterest)],
+      ['قيمة الفائدة', money(breakdown?.totalInterest)],
+      ['قيمة المصاريف الإدارية', money(breakdown?.administrativeFeesAmount)],
       ['إجمالي المبلغ المستحق', money(breakdown?.totalAmountDue)],
       ['القسط الشهري', money(breakdown?.monthlyInstallment)],
     ],

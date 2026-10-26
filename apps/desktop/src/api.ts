@@ -1178,6 +1178,7 @@ export interface FinancingCompanyRecord {
   whatsappNumber: string;
   annualInterestRate: number;
   administrativeFees?: number;
+  administrativeFeesPercentage: number;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;
@@ -1189,6 +1190,7 @@ export interface FinancingCompanyInput {
   whatsappNumber: string;
   annualInterestRate: number;
   administrativeFees: number;
+  administrativeFeesPercentage: number;
   isActive?: boolean;
   sortOrder?: number;
 }
@@ -1260,24 +1262,32 @@ export interface InquiryRecord {
   downPayment?: number;
   motorcyclePrice?: number | null;
   annualInterestRate?: number | null;
+  administrativeFeesPercentage?: number | null;
   financedAmount?: number | null;
   totalInterest?: number | null;
+  administrativeFeesAmount?: number | null;
   totalAmountDue?: number | null;
   monthlyInstallment?: number | null;
   financingBreakdown?: {
     motorcyclePrice: number;
     downPayment: number;
     annualInterestRate: number;
+    administrativeFeesPercentage: number;
     durationMonths: number;
     financedAmount: number;
     totalInterest: number;
+    administrativeFeesAmount: number;
     totalAmountDue: number;
     monthlyInstallment: number;
   } | null;
   motorcycleId?: string;
   financingCompanyId?: string;
   installmentDurationId?: string;
-  financingCompany?: { name: string; annualInterestRate: number } | null;
+  financingCompany?: {
+    name: string;
+    annualInterestRate: number;
+    administrativeFeesPercentage: number;
+  } | null;
   installmentDuration?: { months: number } | null;
   requestedMotorcycle?: InquiryMotorcycleOption | null;
   motorcycle?: MotorcycleSearchResult;

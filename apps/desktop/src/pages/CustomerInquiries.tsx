@@ -19,18 +19,23 @@ function calculateInquiryBreakdown(
   price: number | null | undefined,
   downPayment: number | null | undefined,
   annualInterestRate: number | null | undefined,
+  administrativeFeesPercentage: number | null | undefined,
   months: number | null | undefined,
 ) {
-  if (price == null || downPayment == null || annualInterestRate == null || months == null) return null;
-  if (![price, downPayment, annualInterestRate, months].every(Number.isFinite) ||
-    price <= 0 || downPayment < 0 || downPayment > price || annualInterestRate < 0 || months < 1) return null;
+  if (price == null || downPayment == null || annualInterestRate == null ||
+    administrativeFeesPercentage == null || months == null) return null;
+  if (![price, downPayment, annualInterestRate, administrativeFeesPercentage, months].every(Number.isFinite) ||
+    price <= 0 || downPayment < 0 || downPayment > price || annualInterestRate < 0 ||
+    administrativeFeesPercentage < 0 || administrativeFeesPercentage > 100 || months < 1) return null;
   const roundMoney = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
   const financedAmount = roundMoney(price - downPayment);
   const totalInterest = roundMoney(financedAmount * annualInterestRate / 100 * months / 12);
-  const totalAmountDue = roundMoney(financedAmount + totalInterest);
+  const administrativeFeesAmount = roundMoney(financedAmount * administrativeFeesPercentage / 100);
+  const totalAmountDue = roundMoney(financedAmount + totalInterest + administrativeFeesAmount);
   return {
     financedAmount,
     totalInterest,
+    administrativeFeesAmount,
     totalAmountDue,
     monthlyInstallment: roundMoney(totalAmountDue / months),
   };
@@ -398,6 +403,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     enteredPrice,
     enteredDownPayment,
     selectedFinancingCompany?.annualInterestRate,
+    selectedFinancingCompany?.administrativeFeesPercentage,
     selectedDuration?.months,
   );
   const financingPriceMissing = enteredDownPayment != null &&
@@ -480,7 +486,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
               <select value={form.financingCompanyId} onChange={e => setForm({ ...form, financingCompanyId: e.target.value })} required>
                 <option value="">{isRtl ? '-- اختر --' : '-- Select --'}</option>
                 {financingCompaniesQuery.data?.map(company => (
-                  <option key={company.id} value={company.id}>{company.name} · {company.annualInterestRate}%</option>
+                  <option key={company.id} value={company.id}>{company.name} · {company.annualInterestRate}% · {company.administrativeFeesPercentage ?? 0}%</option>
                 ))}
               </select>
             </label>
@@ -495,24 +501,28 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
             </label>
           </div>
           <div role="status" style={{ marginTop: '1rem', padding: '1rem', borderRadius: '0.75rem', background: 'var(--bg-2)', color: 'var(--text-secondary)' }}>
+            {selectedFinancingCompany && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem', marginBottom: '0.6rem' }}>
+              <strong>{isRtl ? 'نسبة الفائدة السنوية:' : 'Annual interest rate:'} {selectedFinancingCompany.annualInterestRate}%</strong>
+              <strong>{isRtl ? 'نسبة المصاريف الإدارية:' : 'Administrative fees rate:'} {selectedFinancingCompany.administrativeFeesPercentage ?? 0}%</strong>
+            </div>}
             {financingPriceMissing
               ? (isRtl ? 'أدخل سعرًا صحيحًا للدراجة قبل تسجيل المقدم.' : 'Enter a valid motorcycle price before providing a down payment.')
               : financingInputInvalid
               ? (isRtl ? 'تحقق من سعر الدراجة والمقدم؛ لا يمكن أن يتجاوز المقدم سعر الدراجة.' : 'Check the motorcycle price and down payment; the down payment cannot exceed the price.')
               : financingBreakdown
                 ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem' }}>
-                    <strong>{isRtl ? 'سعر الدراجة:' : 'Motorcycle price:'} {enteredPrice!.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'سعر الموتسيكل:' : 'Motorcycle price:'} {enteredPrice!.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
                     <strong>{isRtl ? 'المقدم:' : 'Down payment:'} {enteredDownPayment!.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'المبلغ المموّل:' : 'Financed amount:'} {financingBreakdown.financedAmount.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'الفائدة السنوية:' : 'Annual interest:'} {selectedFinancingCompany?.annualInterestRate}%</strong>
-                    <strong>{isRtl ? 'المدة:' : 'Duration:'} {selectedDuration?.months} {isRtl ? 'شهر' : 'months'}</strong>
-                    <strong>{isRtl ? 'إجمالي الفائدة:' : 'Total interest:'} {financingBreakdown.totalInterest.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'إجمالي المستحق:' : 'Total amount due:'} {financingBreakdown.totalAmountDue.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'القسط الشهري:' : 'Monthly installment:'} {financingBreakdown.monthlyInstallment.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'المبلغ الممول:' : 'Financed amount:'} {financingBreakdown.financedAmount.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'قيمة الفائدة:' : 'Interest amount:'} {financingBreakdown.totalInterest.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'قيمة المصاريف الإدارية:' : 'Administrative fees amount:'} {financingBreakdown.administrativeFeesAmount.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'إجمالي المبلغ المستحق:' : 'Total amount due:'} {financingBreakdown.totalAmountDue.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+                    <strong>{isRtl ? 'مدة التقسيط:' : 'Duration:'} {selectedDuration?.months} {isRtl ? 'شهر' : 'months'}</strong>
+                    <strong>{isRtl ? 'قيمة القسط الشهري:' : 'Monthly installment:'} {financingBreakdown.monthlyInstallment.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
                   </div>
                 : (isRtl
-                    ? 'أدخل سعر الدراجة والمقدم واختر شركة التمويل ومدة التقسيط لعرض الحساب.'
-                    : 'Enter the motorcycle price and down payment, then select a finance company and duration to see the calculation.')}
+                    ? selectedFinancingCompany ? 'أدخل سعر الموتسيكل والمقدم واختر مدة التقسيط لعرض الحساب.' : 'اختر شركة التمويل لعرض نسب الفائدة والمصاريف الإدارية.'
+                    : selectedFinancingCompany ? 'Enter the motorcycle price and down payment, then select a duration to see the calculation.' : 'Select a financing company to display its interest and administrative fee rates.')}
           </div>
           </div>
 

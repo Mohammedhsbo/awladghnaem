@@ -182,10 +182,12 @@ export default function InquiryDetail({ lang }: { lang: Lang }) {
         {!calculation && <p style={{ margin: '0 0 0.5rem', color: 'var(--text-secondary)' }}>{t('The financing breakdown is unavailable until the required price, down payment, company rate, and duration are saved.', 'تفاصيل التمويل غير متاحة حتى يتم حفظ السعر والدفعة المقدمة ونسبة الشركة والمدة المطلوبة.')}</p>}
         <InquiryField label={t('Finance company', 'شركة التمويل')} value={inquiry.financingCompany?.name} />
         <InquiryField label={t('Annual interest rate', 'نسبة الفائدة السنوية')} value={inquiry.annualInterestRate == null ? undefined : `${inquiry.annualInterestRate}%`} />
+        <InquiryField label={t('Administrative fees rate', 'نسبة المصاريف الإدارية')} value={inquiry.administrativeFeesPercentage == null ? undefined : `${inquiry.administrativeFeesPercentage}%`} />
         <InquiryField label={t('Duration', 'مدة التقسيط')} value={inquiry.installmentDuration ? t(`${inquiry.installmentDuration.months} months`, `${inquiry.installmentDuration.months} شهر`) : undefined} />
         <InquiryField label={t('Down payment', 'الدفعة المقدمة')} value={money(inquiry.downPayment)} />
         <InquiryField label={t('Financed amount', 'المبلغ المموّل')} value={money(calculation?.financedAmount)} />
-        <InquiryField label={t('Total interest', 'إجمالي الفائدة')} value={money(calculation?.totalInterest)} />
+        <InquiryField label={t('Interest amount', 'قيمة الفائدة')} value={money(calculation?.totalInterest)} />
+        <InquiryField label={t('Administrative fees amount', 'قيمة المصاريف الإدارية')} value={money(calculation?.administrativeFeesAmount)} />
         <InquiryField label={t('Total amount due', 'إجمالي المستحق')} value={money(calculation?.totalAmountDue)} />
         <InquiryField label={t('Monthly installment', 'القسط الشهري')} value={money(calculation?.monthlyInstallment)} />
       </InquirySection>
