@@ -31,6 +31,10 @@ export const updateUserRequestSchema = z
     branchId: uuidSchema.optional(),
     isActive: z.boolean().optional(),
     lang: languageSchema.optional(),
+    salary: z.preprocess(
+      (value) => typeof value === "string" && value.trim() === "" ? Number.NaN : value,
+      z.coerce.number().finite().min(0).nullable().optional(),
+    ),
   })
   .strict()
   .refine((data) => Object.keys(data).length > 0, {
@@ -78,6 +82,7 @@ export interface Branch {
   address?: string | null;
   phone?: string | null;
   isActive: boolean;
+  salary?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,6 +104,7 @@ export interface User {
   roleId: string;
   lang: Language;
   isActive: boolean;
+  salary?: number | null;
   lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;

@@ -49,3 +49,8 @@ project. Verify the actual API URL and allowed CORS origins before deployment.
 The shared-types package is vendored in this workspace so the project can be
 built independently of the original monorepo. Keep its API contract changes in
 sync with the API project.
+
+Attendance salary values are monthly because the existing employee and
+attendance models did not define a salary basis. Attendance hours are reported
+separately; the client does not calculate payroll deductions, overtime, or
+salary proration.

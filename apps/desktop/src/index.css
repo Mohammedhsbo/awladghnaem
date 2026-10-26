@@ -274,7 +274,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  text-align: left;
+  text-align: start;
   padding: 0.95rem 1rem;
   border-bottom: 1px solid var(--pos-border);
 }

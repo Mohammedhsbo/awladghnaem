@@ -31,6 +31,11 @@ const T = {
     subtotal: 'Subtotal',
     discount: 'Discount',
     total: 'Total',
+    paid: 'Paid',
+    remaining: 'Remaining balance',
+    nationalId: 'National ID',
+    idFront: 'ID card front',
+    idBack: 'ID card back',
     notes: 'Notes',
     noNotes: 'No notes',
     customerOrders: 'Customer Order History',
@@ -63,6 +68,11 @@ const T = {
     subtotal: 'المجموع الفرعي',
     discount: 'الخصم',
     total: 'الإجمالي',
+    paid: 'المبلغ المدفوع',
+    remaining: 'متبقي',
+    nationalId: 'رقم البطاقة',
+    idFront: 'صورة وش البطاقة',
+    idBack: 'صورة ظهر البطاقة',
     notes: 'ملاحظات',
     noNotes: 'لا توجد ملاحظات',
     customerOrders: 'طلبات العميل السابقة',
@@ -289,13 +299,33 @@ export default function OrderDetailPOS({ lang }: Props) {
               )}
             </div>
           )}
+          {order.buyerNationalId && (
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-2)', marginTop: '0.5rem' }}>
+              {t.nationalId}: {order.buyerNationalId}
+            </div>
+          )}
+          {order.address && (
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-2)', marginTop: '0.5rem' }}>
+              {t.address}: {order.address}
+            </div>
+          )}
           {order.customerIdImage && (
             <div style={{ marginTop: '1rem' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 700 }}>
-                {lang === 'ar' ? 'صورة بطاقة العميل' : 'Customer ID image'}
+                {t.idFront}
               </div>
               <a href={order.customerIdImage} target="_blank" rel="noreferrer">
                 <img src={order.customerIdImage} alt={lang === 'ar' ? 'صورة بطاقة العميل' : 'Customer ID image'} style={{ width: '100%', maxWidth: 220, height: 150, objectFit: 'cover', borderRadius: 12, border: '1px solid var(--border)', display: 'block' }} />
+              </a>
+            </div>
+          )}
+          {order.customerIdImageBack && (
+            <div style={{ marginTop: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: '0.5rem', textTransform: 'uppercase', fontWeight: 700 }}>
+                {t.idBack}
+              </div>
+              <a href={order.customerIdImageBack} target="_blank" rel="noreferrer">
+                <img src={order.customerIdImageBack} alt={t.idBack} style={{ width: '100%', maxWidth: 220, height: 150, objectFit: 'cover', borderRadius: 12, border: '1px solid var(--border)', display: 'block' }} />
               </a>
             </div>
           )}
@@ -545,6 +575,18 @@ export default function OrderDetailPOS({ lang }: Props) {
                 {formatCurrency(order.netAmount)}
               </span>
             </div>
+            {order.paidAmount !== null && order.paidAmount !== undefined && order.remainingBalance !== null && order.remainingBalance !== undefined && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.875rem' }}>
+                  <span style={{ color: 'var(--text-2)' }}>{t.paid}</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(order.paidAmount)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontWeight: 700 }}>
+                  <span>{t.remaining}</span>
+                  <span style={{ fontFamily: 'monospace' }}>{formatCurrency(order.remainingBalance)}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {order.notes && (

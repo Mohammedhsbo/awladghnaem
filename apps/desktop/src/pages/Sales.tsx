@@ -16,6 +16,16 @@ function displayFuelType(fuelType: MotorcycleSearchResult['fuelType'], lang: Lan
   return lang === 'ar' ? 'غير معروف' : 'Unknown';
 }
 
+function escapeHtml(value: string | number | null | undefined): string {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character] ?? character);
+}
+
 export default function Sales({ lang }: { lang: Lang }) {
   const isRtl = lang === 'ar';
   const qc = useQueryClient();
@@ -34,6 +44,13 @@ export default function Sales({ lang }: { lang: Lang }) {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerIdFile, setCustomerIdFile] = useState<File | null>(null);
+  const [customerIdBackFile, setCustomerIdBackFile] = useState<File | null>(null);
+  const [customerIdPreview, setCustomerIdPreview] = useState('');
+  const [customerIdBackPreview, setCustomerIdBackPreview] = useState('');
+  const [buyerNationalId, setBuyerNationalId] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [amountPaid, setAmountPaid] = useState('');
+  const [loadedCustomerPhone, setLoadedCustomerPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>('CASH');
   
   // installment & reservation details
@@ -70,6 +87,10 @@ export default function Sales({ lang }: { lang: Lang }) {
       salePrice: selectedMc!.price,
       paymentMethod,
       customerIdImage: customerIdFile ?? undefined,
+      customerIdImageBack: customerIdBackFile ?? undefined,
+      buyerNationalId: buyerNationalId.trim() || undefined,
+      address: customerAddress.trim() || undefined,
+      amountPaid: Number(amountPaid),
     }),
     onSuccess: (data) => {
       setDoneSale(data);
@@ -121,7 +142,7 @@ export default function Sales({ lang }: { lang: Lang }) {
 
   /* ── helpers ───────────────────────────────────── */
   const money = (v: number) =>
-    `${v.toLocaleString(isRtl ? 'ar-EG' : 'en-EG', { maximumFractionDigits: 0 })} ${isRtl ? 'ج.م' : 'EGP'}`;
+    `${v.toLocaleString(isRtl ? 'ar-EG' : 'en-EG', { maximumFractionDigits: 2 })} ${isRtl ? 'ج.م' : 'EGP'}`;
 
   function reset() {
     setStep('method');
@@ -129,6 +150,13 @@ export default function Sales({ lang }: { lang: Lang }) {
     setCustomerName('');
     setCustomerPhone('');
     setCustomerIdFile(null);
+    setCustomerIdBackFile(null);
+    setCustomerIdPreview('');
+    setCustomerIdBackPreview('');
+    setBuyerNationalId('');
+    setCustomerAddress('');
+    setAmountPaid('');
+    setLoadedCustomerPhone('');
     setReservationIdFile(null);
     setPaymentMethod('CASH');
     setFinancingCompanyId('');
@@ -159,6 +187,7 @@ export default function Sales({ lang }: { lang: Lang }) {
       ? (isRtl ? 'نقدي' : 'Cash')
       : (isRtl ? 'فيزا' : 'Visa');
     const dateStr = new Date(doneSale.createdAt).toLocaleString(isRtl ? 'ar-EG' : 'en-GB');
+    const remainingBalance = Number(doneSale.remainingBalance ?? Math.max(Number(doneSale.salePrice) - Number(doneSale.amountPaid), 0));
 
     const html = `<!DOCTYPE html>
 <html lang="${isRtl ? 'ar' : 'en'}" dir="${isRtl ? 'rtl' : 'ltr'}">
@@ -198,8 +227,10 @@ export default function Sales({ lang }: { lang: Lang }) {
     <tr><th colspan="2">${isRtl ? 'بيانات العميل' : 'Customer Information'}</th></tr>
   </thead>
   <tbody>
-    <tr><td>${isRtl ? 'الاسم' : 'Name'}</td><td>${doneSale.customerName}</td></tr>
-    <tr><td>${isRtl ? 'الهاتف' : 'Phone'}</td><td>${doneSale.customerPhone}</td></tr>
+    <tr><td>${isRtl ? 'الاسم' : 'Name'}</td><td>${escapeHtml(doneSale.customerName)}</td></tr>
+    <tr><td>${isRtl ? 'الهاتف' : 'Phone'}</td><td>${escapeHtml(doneSale.customerPhone)}</td></tr>
+    ${doneSale.buyerNationalId ? `<tr><td>${isRtl ? 'رقم البطاقة' : 'National ID'}</td><td>${escapeHtml(doneSale.buyerNationalId)}</td></tr>` : ''}
+    ${doneSale.address ? `<tr><td>${isRtl ? 'العنوان' : 'Address'}</td><td>${escapeHtml(doneSale.address)}</td></tr>` : ''}
   </tbody>
 </table>
 <table>
@@ -207,13 +238,15 @@ export default function Sales({ lang }: { lang: Lang }) {
     <tr><th colspan="2">${isRtl ? 'بيانات الدراجة' : 'Motorcycle Details'}</th></tr>
   </thead>
   <tbody>
-    <tr><td>${isRtl ? 'الماركة' : 'Brand'}</td><td>${brandName ?? '-'}</td></tr>
-    <tr><td>${isRtl ? 'الموديل' : 'Model'}</td><td>${mc?.model ?? '-'}</td></tr>
-    <tr><td>${isRtl ? 'رقم الشاسيه' : 'Chassis number'}</td><td>${mc?.vin ?? '-'}</td></tr>
-    <tr><td>${isRtl ? 'رقم الموتور' : 'Motor number'}</td><td>${mc?.engineNumber ?? '-'}</td></tr>
-    <tr><td>${isRtl ? 'نوع الوقود' : 'Fuel type'}</td><td>${mc?.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : mc?.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}</td></tr>
-    <tr><td>${isRtl ? 'الحالة' : 'Status'}</td><td>${mc?.status ?? '-'}</td></tr>
+    <tr><td>${isRtl ? 'الماركة' : 'Brand'}</td><td>${escapeHtml(brandName)}</td></tr>
+    <tr><td>${isRtl ? 'الموديل' : 'Model'}</td><td>${escapeHtml(mc?.model ?? '-')}</td></tr>
+    <tr><td>${isRtl ? 'رقم الشاسيه' : 'Chassis number'}</td><td>${escapeHtml(mc?.vin ?? '-')}</td></tr>
+    <tr><td>${isRtl ? 'رقم الموتور' : 'Motor number'}</td><td>${escapeHtml(mc?.engineNumber ?? '-')}</td></tr>
+    <tr><td>${isRtl ? 'نوع الوقود' : 'Fuel type'}</td><td>${escapeHtml(mc?.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : mc?.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown'))}</td></tr>
+    <tr><td>${isRtl ? 'الحالة' : 'Status'}</td><td>${escapeHtml(mc?.status ?? '-')}</td></tr>
     <tr class="total-row"><td>${isRtl ? 'السعر الإجمالي' : 'Total Price'}</td><td>${money(Number(doneSale.salePrice))}</td></tr>
+    <tr><td>${isRtl ? 'المبلغ المدفوع' : 'Amount Paid'}</td><td>${money(Number(doneSale.amountPaid))}</td></tr>
+    <tr><td>${isRtl ? 'متبقي' : 'Remaining Balance'}</td><td>${money(remainingBalance)}</td></tr>
   </tbody>
 </table>
 <table>
@@ -221,9 +254,10 @@ export default function Sales({ lang }: { lang: Lang }) {
     <tr><th colspan="2">${isRtl ? 'بيانات الدفع' : 'Payment Details'}</th></tr>
   </thead>
   <tbody>
-    <tr><td>${isRtl ? 'طريقة الدفع' : 'Payment Method'}</td><td>${payLabel}</td></tr>
+    <tr><td>${isRtl ? 'طريقة الدفع' : 'Payment Method'}</td><td>${escapeHtml(payLabel)}</td></tr>
   </tbody>
 </table>
+<p style="text-align:center;font-weight:700;margin:28px 0">استلام أوراق الترخيص خلال شهر من تاريخه</p>
 <div class="signature">
   <div class="sig-box">
     <div class="sig-line">${isRtl ? 'توقيع العميل' : 'Customer Signature'}</div>
@@ -241,6 +275,22 @@ export default function Sales({ lang }: { lang: Lang }) {
     win.print();
   }
 
+  async function lookupCustomer() {
+    if (customerPhone.trim().length < 5) return;
+    try {
+      const customer = await pos.lookupCashSaleCustomer(customerPhone.trim());
+      setLoadedCustomerPhone(customer ? customerPhone.trim() : '');
+      if (!customer) return;
+      setCustomerName((current) => current || customer.name);
+      setBuyerNationalId((current) => current || customer.nationalId || '');
+      setCustomerAddress((current) => current || customer.address || '');
+      setCustomerIdPreview((current) => current || customer.customerIdImage || '');
+      setCustomerIdBackPreview((current) => current || customer.customerIdImageBack || '');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : (isRtl ? 'تعذر البحث عن العميل.' : 'Customer lookup failed.'));
+    }
+  }
+
   /* ── submit confirm ────────────────────────────── */
   function submitSale(e: FormEvent) {
     e.preventDefault();
@@ -250,8 +300,12 @@ export default function Sales({ lang }: { lang: Lang }) {
       setError(isRtl ? 'اسم العميل ورقم هاتفه مطلوبان.' : 'Customer name and phone are required.');
       return;
     }
-    if (!customerIdFile) {
-      setError(isRtl ? 'صورة الهوية مطلوبة.' : 'Customer ID image is required.');
+    if ((!customerIdFile && !customerIdPreview) || (!customerIdBackFile && !customerIdBackPreview)) {
+      setError(isRtl ? 'يجب رفع صورتي البطاقة أو اختيار عميل لديه صور محفوظة.' : 'Upload both ID images or select a customer with stored images.');
+      return;
+    }
+    if (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0 || Number(amountPaid) > selectedMc.price) {
+      setError(isRtl ? 'المبلغ المدفوع يجب ألا يتجاوز إجمالي الفاتورة.' : 'Amount paid must not exceed the invoice total.');
       return;
     }
     createSale.mutate();
@@ -383,7 +437,7 @@ export default function Sales({ lang }: { lang: Lang }) {
                   <button
                     key={mc.id}
                     className="mc-card"
-                    onClick={() => { setSelectedMc(mc); setError(null); setStep(step === 'reservation-list' ? 'reserve-details' : 'cash-details'); }}
+                    onClick={() => { setSelectedMc(mc); setAmountPaid(String(mc.price)); setError(null); setStep(step === 'reservation-list' ? 'reserve-details' : 'cash-details'); }}
                     dir={isRtl ? 'rtl' : 'ltr'}
                   >
                     {/* Card header — gradient image area */}
@@ -421,7 +475,7 @@ export default function Sales({ lang }: { lang: Lang }) {
 
       {/* ── STEP 3: Cash Details ─────────────────────── */}
       {step === 'cash-details' && selectedMc && (
-        <form className="surface-panel sales-step-panel sales-cash-panel" onSubmit={e => { e.preventDefault(); if (!customerIdFile) { setError(isRtl ? 'يجب رفع صورة الهوية أولاً.' : 'Please upload the ID photo first.'); return; } setStep('confirm'); setError(null); }} style={{ maxWidth: 540, margin: '0 auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <form className="surface-panel sales-step-panel sales-cash-panel" onSubmit={e => { e.preventDefault(); if ((!customerIdFile && !customerIdPreview) || (!customerIdBackFile && !customerIdBackPreview)) { setError(isRtl ? 'يجب رفع صورتي البطاقة أو اختيار عميل لديه صور محفوظة.' : 'Upload both ID images or select a customer with stored images.'); return; } if (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0 || Number(amountPaid) > selectedMc.price) { setError(isRtl ? 'المبلغ المدفوع يجب ألا يتجاوز إجمالي الفاتورة.' : 'Amount paid must not exceed the invoice total.'); return; } setStep('confirm'); setError(null); }} style={{ maxWidth: 540, margin: '0 auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <h2 style={{ margin: 0 }}>{isRtl ? 'بيانات العميل' : 'Customer Details'}</h2>
           <p style={{ color: 'var(--text-2)', margin: 0 }}>
             {isRtl ? 'الدراجة: ' : 'Motorcycle: '}<strong>{isRtl ? selectedMc.brand.nameAr : selectedMc.brand.nameEn} {selectedMc.model}</strong>
@@ -434,25 +488,83 @@ export default function Sales({ lang }: { lang: Lang }) {
           </label>
           <label>
             {isRtl ? 'رقم الهاتف *' : 'Phone Number *'}
-            <input required value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
+            <input required value={customerPhone} onBlur={() => void lookupCustomer()} onChange={e => {
+              const value = e.target.value;
+              if (loadedCustomerPhone && value.trim() !== loadedCustomerPhone) {
+                setLoadedCustomerPhone('');
+                setCustomerIdFile(null);
+                setCustomerIdBackFile(null);
+                setCustomerIdPreview('');
+                setCustomerIdBackPreview('');
+                setBuyerNationalId('');
+                setCustomerAddress('');
+              }
+              setCustomerPhone(value);
+            }} />
+          </label>
+          <label>
+            {isRtl ? 'رقم البطاقة' : 'National ID number'}
+            <input maxLength={20} value={buyerNationalId} onChange={e => setBuyerNationalId(e.target.value)} />
+          </label>
+          <label>
+            {isRtl ? 'العنوان' : 'Address'}
+            <textarea value={customerAddress} onChange={e => setCustomerAddress(e.target.value)} rows={2} />
           </label>
           <label>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <FileImage size={16} /> {isRtl ? 'صورة هوية العميل *' : 'Customer ID Photo *'}
+              <FileImage size={16} /> {isRtl ? 'صورة وش البطاقة' : 'ID card front image'}
             </span>
             <input
               ref={fileInputRef}
-              required
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              onChange={e => setCustomerIdFile(e.target.files?.[0] ?? null)}
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+                  setError(isRtl ? 'الصورة يجب أن تكون JPG أو PNG أو WebP وبحجم لا يتجاوز 5 ميجابايت.' : 'Image must be JPG, PNG, or WebP and no larger than 5 MB.');
+                  e.target.value = '';
+                  return;
+                }
+                setError(null);
+                setCustomerIdFile(file);
+                setCustomerIdPreview(URL.createObjectURL(file));
+              }}
             />
           </label>
-          {customerIdFile && (
-            <p style={{ color: 'var(--green)', fontSize: '0.875rem', margin: 0 }}>
-              ✔ {customerIdFile.name}
-            </p>
-          )}
+          {customerIdPreview && <img src={customerIdPreview} alt={isRtl ? 'معاينة وش البطاقة' : 'ID front preview'} style={{ width: 160, height: 110, objectFit: 'cover', borderRadius: 8 }} />}
+          {customerIdFile && <p style={{ color: 'var(--green)', fontSize: '0.875rem', margin: 0 }}>✔ {customerIdFile.name}</p>}
+          <label>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <FileImage size={16} /> {isRtl ? 'صورة ظهر البطاقة' : 'ID card back image'}
+            </span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+                  setError(isRtl ? 'الصورة يجب أن تكون JPG أو PNG أو WebP وبحجم لا يتجاوز 5 ميجابايت.' : 'Image must be JPG, PNG, or WebP and no larger than 5 MB.');
+                  e.target.value = '';
+                  return;
+                }
+                setError(null);
+                setCustomerIdBackFile(file);
+                setCustomerIdBackPreview(URL.createObjectURL(file));
+              }}
+            />
+          </label>
+          {customerIdBackPreview && <img src={customerIdBackPreview} alt={isRtl ? 'معاينة ظهر البطاقة' : 'ID back preview'} style={{ width: 160, height: 110, objectFit: 'cover', borderRadius: 8 }} />}
+          {customerIdBackFile && <p style={{ color: 'var(--green)', fontSize: '0.875rem', margin: 0 }}>✔ {customerIdBackFile.name}</p>}
+          <label>
+            {isRtl ? 'المبلغ المدفوع' : 'Amount paid'}
+            <input type="number" min="0" max={selectedMc.price} step="0.01" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} />
+          </label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+            <span>{isRtl ? 'متبقي' : 'Remaining balance'}</span>
+            <span>{money(Math.max(selectedMc.price - (Number(amountPaid) || 0), 0))}</span>
+          </div>
           <button className="primary-action" type="submit" style={{ padding: '0.9rem' }}>
             {isRtl ? 'متابعة →' : 'Continue →'}
           </button>
@@ -553,7 +665,14 @@ export default function Sales({ lang }: { lang: Lang }) {
           <div style={{ background: 'var(--bg-2)', borderRadius: '0.5rem', padding: '1rem' }}>
             <p style={{ margin: '0 0 4px', fontWeight: 600 }}>{customerName}</p>
             <p style={{ margin: 0, color: 'var(--text-2)', fontSize: '0.875rem' }}>{customerPhone}</p>
-            {customerIdFile && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>🪪 {customerIdFile.name}</p>}
+            {buyerNationalId && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>{isRtl ? 'رقم البطاقة:' : 'National ID:'} {buyerNationalId}</p>}
+            {customerAddress && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>{customerAddress}</p>}
+            {(customerIdFile || customerIdPreview) && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>🪪 {customerIdFile?.name ?? (isRtl ? 'الصورة الأمامية محفوظة' : 'Stored front image')}</p>}
+            {(customerIdBackFile || customerIdBackPreview) && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>🪪 {customerIdBackFile?.name ?? (isRtl ? 'الصورة الخلفية محفوظة' : 'Stored back image')}</p>}
+          </div>
+          <div style={{ background: 'var(--bg-2)', borderRadius: '0.5rem', padding: '1rem', display: 'flex', justifyContent: 'space-between' }}>
+            <span>{isRtl ? 'إجمالي الفاتورة' : 'Invoice total'}: {money(selectedMc.price)}</span>
+            <span>{isRtl ? 'متبقي' : 'Remaining'}: {money(Math.max(selectedMc.price - (Number(amountPaid) || 0), 0))}</span>
           </div>
 
           {/* Payment method */}
@@ -596,6 +715,10 @@ export default function Sales({ lang }: { lang: Lang }) {
           <p style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '1.2rem', margin: 0 }}>
             {money(Number(doneSale.salePrice))} — {doneSale.paymentMethod === 'CASH' ? (isRtl ? 'نقدي' : 'Cash') : 'Visa'}
           </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', borderRadius: '0.5rem', background: 'var(--bg-2)' }}>
+            <span>{isRtl ? 'المدفوع' : 'Paid'}: {money(Number(doneSale.amountPaid))}</span>
+            <strong>{isRtl ? 'متبقي' : 'Remaining'}: {money(Number(doneSale.remainingBalance))}</strong>
+          </div>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="primary-action" onClick={printInvoice} style={{ padding: '0.9rem 1.5rem' }}>
               <Printer size={18} /> {isRtl ? 'طباعة الفاتورة' : 'Print Invoice'}

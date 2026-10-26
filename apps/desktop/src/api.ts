@@ -68,6 +68,7 @@ export interface UserListItem {
   role: { id: string; name: string };
   branch?: BranchSummary | null;
   isActive: boolean;
+  salary?: number | null;
   lang?: 'ar' | 'en';
   lastLoginAt?: string | null;
   createdAt?: string;
@@ -99,6 +100,7 @@ export interface UpdateUserInput {
   branchId?: string | null;
   lang?: 'ar' | 'en';
   isActive?: boolean;
+  salary?: number | null;
 }
 
 export function setToken(token: string) {
@@ -614,6 +616,10 @@ export interface Order {
   totalAmount: number;
   discount: number;
   netAmount: number;
+  paidAmount?: number | null;
+  remainingBalance?: number | null;
+  buyerNationalId?: string | null;
+  address?: string | null;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -635,6 +641,7 @@ export interface OrderListItem {
 
 export interface OrderDetail extends Order {
   customerIdImage?: string | null;
+  customerIdImageBack?: string | null;
   customer: {
     id: string;
     customerCode?: string | null;
@@ -939,6 +946,16 @@ export const pos = {
   
   searchCustomers: (q: string, limit = 10, page = 1) =>
     apiFetch<POSCustomerSearchResponse>(`/pos/customers/search?q=${encodeURIComponent(q)}&limit=${limit}&page=${page}`),
+  lookupCashSaleCustomer: (phone: string) =>
+    apiFetch<{
+      id: string;
+      name: string;
+      phone: string;
+      nationalId: string | null;
+      address: string | null;
+      customerIdImage: string | null;
+      customerIdImageBack: string | null;
+    } | null>(`/pos/customers/lookup?phone=${encodeURIComponent(phone)}`),
   
   searchMotorcycles: (q?: string, branchId?: string, limit = 20) => {
     const params = new URLSearchParams();
@@ -965,8 +982,12 @@ export const pos = {
     form.set('customerName', input.customerName);
     form.set('customerPhone', input.customerPhone);
     form.set('salePrice', String(input.salePrice));
+    form.set('amountPaid', String(input.amountPaid));
     form.set('paymentMethod', input.paymentMethod);
     if (input.customerIdImage) form.set('customerIdImage', input.customerIdImage);
+    if (input.customerIdImageBack) form.set('customerIdImageBack', input.customerIdImageBack);
+    if (input.buyerNationalId) form.set('buyerNationalId', input.buyerNationalId);
+    if (input.address) form.set('address', input.address);
     return apiFetch<SaleRecord>('/pos/cash-sales', { method: 'POST', body: form });
   },
   listOrders: (params?: { search?: string; status?: OrderStatus; paymentType?: DesktopOrderPaymentType; page?: number; limit?: number }) => {
@@ -1177,7 +1198,6 @@ export interface FinancingCompanyRecord {
   nameEn?: string;
   whatsappNumber: string;
   annualInterestRate: number;
-  administrativeFees?: number;
   administrativeFeesPercentage: number;
   isActive: boolean;
   sortOrder: number;
@@ -1189,7 +1209,6 @@ export interface FinancingCompanyInput {
   name: string;
   whatsappNumber: string;
   annualInterestRate: number;
-  administrativeFees: number;
   administrativeFeesPercentage: number;
   isActive?: boolean;
   sortOrder?: number;
@@ -1424,7 +1443,12 @@ export interface SaleRecord {
   customerPhone: string;
   customerCode?: string | null;
   customerIdImage?: string;
+  customerIdImageBack?: string;
+  buyerNationalId?: string | null;
+  address?: string | null;
   salePrice: number;
+  amountPaid: number;
+  remainingBalance: number;
   paymentMethod: SalePaymentMethod;
   branchId?: string;
   createdAt: string;
@@ -1437,6 +1461,10 @@ export interface SaleInput {
   salePrice: number;
   paymentMethod: SalePaymentMethod;
   customerIdImage?: File;
+  customerIdImageBack?: File;
+  buyerNationalId?: string;
+  address?: string;
+  amountPaid: number;
 }
 
 export const sales = {
@@ -1687,6 +1715,15 @@ export interface AttendanceRecord {
   checkOut: string | null;
   notes: string | null;
   createdAt: string;
+  durationMinutes: number | null;
+}
+
+export interface AttendanceSummaryEmployee {
+  userId: string;
+  userName: string;
+  salary: number | null;
+  attendanceDays: number;
+  totalMinutes: number;
 }
 
 export interface AttendanceListResult {
@@ -1719,6 +1756,16 @@ export const attendance = {
     if (params?.endDate) q.set('endDate', params.endDate);
     return apiFetch<AttendanceListResult>(`/attendance?${q}`);
   },
+  summary: (params?: { userId?: string; startDate?: string; endDate?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.userId) q.set('userId', params.userId);
+    if (params?.startDate) q.set('startDate', new Date(`${params.startDate}T00:00:00`).toISOString());
+    if (params?.endDate) q.set('endDate', new Date(`${params.endDate}T23:59:59.999`).toISOString());
+    q.set('timeZone', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    return apiFetch<{ startDate: string | null; endDate: string | null; employees: AttendanceSummaryEmployee[] }>(`/attendance/summary?${q}`);
+  },
+  update: (id: string, data: { checkIn?: string; checkOut?: string | null; notes?: string | null }) =>
+    apiFetch<AttendanceRecord>(`/attendance/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 };
 
 
