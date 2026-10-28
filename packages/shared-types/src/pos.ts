@@ -111,6 +111,8 @@ export const posMotorcycleSearchSchema = z.object({
   q: z.string().min(2, "Search term must be at least 2 characters").optional(),
   branchId: z.string().uuid().optional(),
   limit: z.coerce.number().min(1).max(50).default(20),
+  page: z.coerce.number().int().min(1).default(1),
+  includeTotal: z.enum(["true", "false"]).transform((value) => value === "true").default("false"),
 });
 
 export type POSMotorcycleSearchQuery = z.infer<typeof posMotorcycleSearchSchema>;

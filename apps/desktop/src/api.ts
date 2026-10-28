@@ -964,6 +964,18 @@ export const pos = {
     params.append('limit', limit.toString());
     return apiFetch<MotorcycleSearchResult[]>(`/pos/motorcycles/search?${params}`);
   },
+  listInventoryMotorcycles: (q: string | undefined, branchId: string | undefined, limit: number, page: number) => {
+    const params = new URLSearchParams({ limit: String(limit), page: String(page), includeTotal: 'true' });
+    if (q) params.set('q', q);
+    if (branchId) params.set('branchId', branchId);
+    return apiFetch<{
+      items: MotorcycleSearchResult[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>(`/pos/motorcycles/search?${params}`);
+  },
   
   validateTransaction: (data: ValidatePOSTransactionDto) =>
     apiFetch<ValidatePOSTransactionResponse>('/pos/validate-transaction', {
@@ -1167,6 +1179,31 @@ export const suppliers = {
   remove: (id: string) => apiFetch<void>(`/suppliers/${id}`, { method: 'DELETE' }),
 };
 
+export interface MotorcycleBox {
+  id: string;
+  boxNumber: string;
+  motorPresent: boolean;
+  chassisPresent: boolean;
+  tirePresent: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMotorcycleBoxInput {
+  boxNumber: string;
+  motorPresent: boolean;
+  chassisPresent: boolean;
+  tirePresent: boolean;
+}
+
+export const motorcycleBoxes = {
+  list: () => apiFetch<MotorcycleBox[]>('/boxes'),
+  create: (data: CreateMotorcycleBoxInput) =>
+    apiFetch<MotorcycleBox>('/boxes', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: CreateMotorcycleBoxInput) =>
+    apiFetch<MotorcycleBox>(`/boxes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  remove: (id: string) => apiFetch<void>(`/boxes/${id}`, { method: 'DELETE' }),
+};
 
 // ─── Configuration (SPEC-013 TASK-015) ───────────────────
 export const configuration = {

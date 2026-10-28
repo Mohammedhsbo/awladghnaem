@@ -40,6 +40,7 @@ import Attendance from './pages/Attendance';
 import Branches from './pages/Branches';
 import CurrentOrders from './pages/CurrentOrders';
 import Brands from './pages/Brands';
+import MotorcycleBoxes from './pages/MotorcycleBoxes';
 
 
 const qc = new QueryClient({
@@ -57,6 +58,7 @@ const navItems = [
   { path: '/reservations', icon: ClipboardList, en: 'Reservations', ar: 'الحجوزات', pageKey: 'reservations' },
   { path: '/history', icon: ClipboardList, en: 'Transaction history', ar: 'سجل المعاملات', pageKey: 'history' },
   { path: '/inventory', icon: Bike, en: 'Inventory', ar: 'المخزون', pageKey: 'inventory' },
+  { path: '/boxes', icon: Package, en: 'Boxes', ar: 'الصناديق', pageKey: 'boxes' },
   { path: '/brands', icon: Tags, en: 'Motorcycle brands', ar: 'الماركات التجارية', pageKey: 'brands' },
   { path: '/transfers', icon: ArrowRightLeft, en: 'Transfers', ar: 'التحويلات', pageKey: 'transfers' },
   { path: '/customers', icon: Users, en: 'Customers', ar: 'العملاء', pageKey: 'customers' },
@@ -86,6 +88,7 @@ const permissionForPath: Record<string, Array<[string, string]>> = {
   '/transfers': [['transfer', 'read']],
   '/financing-companies': [['setting', 'read']],
   '/brands': [['motorcycle', 'read']],
+  '/boxes': [['motorcycle', 'read']],
 };
 
 function canAccessPath(user: DesktopUser | null, path: string) {
@@ -299,6 +302,7 @@ function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: 
         <Route path="/reservations/:id" element={<ReservationDetailPOS lang={lang} />} />
         <Route path="/history" element={<TransactionHistory lang={lang} />} />
         <Route path="/inventory" element={<Inventory lang={lang} branchId={selectedBranchId} />} />
+        <Route path="/boxes" element={gatedRoute(user, lang, '/boxes', <MotorcycleBoxes user={user} />)} />
         <Route path="/inventory/new" element={<InventoryForm lang={lang} branchId={selectedBranchId ?? undefined} />} />
         <Route path="/inventory/:id/edit" element={<InventoryForm lang={lang} branchId={selectedBranchId ?? undefined} />} />
         <Route path="/inventory/:id" element={<InventoryDetail lang={lang} />} />

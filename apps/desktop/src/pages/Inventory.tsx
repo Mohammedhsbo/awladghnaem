@@ -11,14 +11,17 @@ export default function Inventory({ lang, branchId }: { lang: Lang; branchId?: s
   const navigate = useNavigate();
   const canManage = getUser()?.role.name === 'super_admin';
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
   
   const list = useQuery({ 
-    queryKey: ['desktop-inventory', query, branchId], 
-    queryFn: () => pos.searchMotorcycles(query, branchId, 50), 
+    queryKey: ['desktop-inventory', query, branchId, page], 
+    queryFn: () => pos.listInventoryMotorcycles(query || undefined, branchId, 50, page), 
     enabled: query.length === 0 || query.length >= 2 
   });
   
-  const data = list.data || [];
+  const data = list.data?.items ?? [];
+  const total = list.data?.total ?? 0;
+  const totalPages = list.data?.totalPages ?? 1;
   const money = (value: number) => `${value.toLocaleString(isRtl ? 'ar-EG' : 'en-EG', { maximumFractionDigits: 0 })} ${isRtl ? 'ج.م' : 'EGP'}`;
   
   return (
@@ -44,9 +47,9 @@ export default function Inventory({ lang, branchId }: { lang: Lang; branchId?: s
       <div className="toolbar">
         <div className="search-box">
           <Search size={17} />
-          <input value={query} onChange={event => setQuery(event.target.value)} placeholder={isRtl ? 'ابحث بالموديل أو رقم الموتور...' : 'Search model or motor number...'} />
+          <input value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} placeholder={isRtl ? 'ابحث بالموديل أو رقم الموتور...' : 'Search model or motor number...'} />
         </div>
-        <span className="result-count">{data.length} {isRtl ? 'وحدة' : 'units'}</span>
+        <span className="result-count">{total} {isRtl ? 'وحدة متاحة' : 'available units'}</span>
       </div>
       
       {list.isLoading && (
@@ -89,6 +92,18 @@ export default function Inventory({ lang, branchId }: { lang: Lang; branchId?: s
               </div>
             </button>
           ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="report-controls" style={{ justifyContent: 'center', marginTop: '1.5rem' }}>
+          <button className="secondary-action" disabled={page <= 1 || list.isFetching} onClick={() => setPage(current => current - 1)}>
+            {isRtl ? 'السابق' : 'Previous'}
+          </button>
+          <span className="result-count">{page} / {totalPages}</span>
+          <button className="secondary-action" disabled={page >= totalPages || list.isFetching} onClick={() => setPage(current => current + 1)}>
+            {isRtl ? 'التالي' : 'Next'}
+          </button>
         </div>
       )}
 

@@ -2218,6 +2218,35 @@ body { background: var(--pos-bg); }
 .history-pagination { margin-top: 1rem; padding: .75rem 0 0; border-top: 1px solid var(--pos-border); }
 .history-pagination > div { display: flex; align-items: center; gap: .6rem; color: var(--text-2); }
 .history-pagination .icon-button:disabled { opacity: .45; cursor: not-allowed; }
+.motorcycle-boxes-page { display: grid; gap: 1.25rem; }
+.motorcycle-box-form, .boxes-list-panel { min-width: 0; }
+.motorcycle-box-form h2, .boxes-list-panel h2 { display: flex; align-items: center; gap: .55rem; margin: 0 0 1.1rem; color: var(--text-primary); font-size: 1.15rem; }
+.box-number-label { display: grid; gap: .45rem; max-width: 520px; color: var(--text-2); font-size: .82rem; font-weight: 700; }
+.box-number-label input { min-height: 44px; padding: 0 .75rem; border: 1px solid var(--pos-border); border-radius: 9px; color: var(--text-primary); background: #fff; font: inherit; }
+.box-number-label input:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+.box-status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; margin-top: 1.1rem; }
+.box-status-field { display: flex; flex-wrap: wrap; gap: .8rem 1rem; min-width: 0; margin: 0; padding: .8rem 1rem; border: 1px solid var(--pos-border); border-radius: 10px; }
+.box-status-field legend { padding: 0 .3rem; color: var(--text-primary); font-size: .84rem; font-weight: 750; }
+.box-status-option { display: inline-flex; align-items: center; gap: .4rem; color: var(--text-2); font-size: .8rem; cursor: pointer; }
+.box-status-option input { accent-color: var(--blue); }
+.motorcycle-boxes-page .modal-actions { display: flex; justify-content: flex-start; gap: .65rem; margin-top: 1rem; }
+.inline-success { padding: .7rem .85rem; border: 1px solid #b7ead7; border-radius: 8px; color: #047857; background: #ecfdf5; }
+.boxes-list-panel .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
+.boxes-list-panel .panel-heading h2 { margin: 0; }
+.boxes-list-panel .panel-heading > span { min-width: 2rem; padding: .2rem .55rem; border-radius: 99px; color: var(--blue); background: var(--blue-glow); text-align: center; font-weight: 750; }
+.attendance-table-wrap { width: 100%; overflow-x: auto; }
+.motorcycle-boxes-page .attendance-table { width: 100%; min-width: 650px; border-collapse: collapse; text-align: right; }
+.motorcycle-boxes-page .attendance-table th, .motorcycle-boxes-page .attendance-table td { padding: .8rem .7rem; border-bottom: 1px solid var(--pos-border); white-space: nowrap; }
+.motorcycle-boxes-page .attendance-table th { color: var(--text-2); background: var(--pos-surface); font-size: .76rem; font-weight: 750; }
+.motorcycle-boxes-page .attendance-table td { color: var(--text-primary); font-size: .82rem; }
+.motorcycle-boxes-page .status-text { color: var(--text-2); font-size: .78rem; font-weight: 650; }
+.motorcycle-boxes-page .box-row-actions { display: flex; align-items: center; gap: .35rem; }
+.motorcycle-boxes-page .box-delete-button { color: #b42318; }
+.motorcycle-boxes-page .box-delete-button:hover { color: #fff; background: #b42318; }
+@media (max-width: 700px) {
+  .motorcycle-boxes-page .surface-panel { padding: 1rem; }
+  .box-status-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 620px) {
   .date-range-filter { width: 100%; }
   .date-range-filter label { min-width: 0; flex: 1; }
