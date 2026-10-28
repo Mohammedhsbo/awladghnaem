@@ -994,6 +994,7 @@ export const pos = {
     form.set('customerName', input.customerName);
     form.set('customerPhone', input.customerPhone);
     form.set('salePrice', String(input.salePrice));
+    form.set('discount', String(input.discount ?? 0));
     form.set('amountPaid', String(input.amountPaid));
     form.set('paymentMethod', input.paymentMethod);
     if (input.customerIdImage) form.set('customerIdImage', input.customerIdImage);
@@ -1484,6 +1485,8 @@ export interface SaleRecord {
   buyerNationalId?: string | null;
   address?: string | null;
   salePrice: number;
+  discount: number;
+  finalPrice: number;
   amountPaid: number;
   remainingBalance: number;
   paymentMethod: SalePaymentMethod;
@@ -1496,6 +1499,7 @@ export interface SaleInput {
   customerName: string;
   customerPhone: string;
   salePrice: number;
+  discount?: number;
   paymentMethod: SalePaymentMethod;
   customerIdImage?: File;
   customerIdImageBack?: File;

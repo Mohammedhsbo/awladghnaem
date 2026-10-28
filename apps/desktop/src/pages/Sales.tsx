@@ -49,6 +49,7 @@ export default function Sales({ lang }: { lang: Lang }) {
   const [customerIdBackPreview, setCustomerIdBackPreview] = useState('');
   const [buyerNationalId, setBuyerNationalId] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [discount, setDiscount] = useState('0');
   const [amountPaid, setAmountPaid] = useState('');
   const [loadedCustomerPhone, setLoadedCustomerPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>('CASH');
@@ -85,6 +86,7 @@ export default function Sales({ lang }: { lang: Lang }) {
       customerName,
       customerPhone,
       salePrice: selectedMc!.price,
+      discount: Number(discount),
       paymentMethod,
       customerIdImage: customerIdFile ?? undefined,
       customerIdImageBack: customerIdBackFile ?? undefined,
@@ -155,6 +157,7 @@ export default function Sales({ lang }: { lang: Lang }) {
     setCustomerIdBackPreview('');
     setBuyerNationalId('');
     setCustomerAddress('');
+    setDiscount('0');
     setAmountPaid('');
     setLoadedCustomerPhone('');
     setReservationIdFile(null);
@@ -187,7 +190,10 @@ export default function Sales({ lang }: { lang: Lang }) {
       ? (isRtl ? 'نقدي' : 'Cash')
       : (isRtl ? 'فيزا' : 'Visa');
     const dateStr = new Date(doneSale.createdAt).toLocaleString(isRtl ? 'ar-EG' : 'en-GB');
-    const remainingBalance = Number(doneSale.remainingBalance ?? Math.max(Number(doneSale.salePrice) - Number(doneSale.amountPaid), 0));
+    const originalPrice = Number(doneSale.salePrice ?? 0);
+    const discountAmount = Number(doneSale.discount ?? 0);
+    const finalPrice = Number(doneSale.finalPrice ?? Math.max(originalPrice - discountAmount, 0));
+    const remainingBalance = Number(doneSale.remainingBalance ?? Math.max(finalPrice - Number(doneSale.amountPaid ?? 0), 0));
 
     const html = `<!DOCTYPE html>
 <html lang="${isRtl ? 'ar' : 'en'}" dir="${isRtl ? 'rtl' : 'ltr'}">
@@ -244,9 +250,11 @@ export default function Sales({ lang }: { lang: Lang }) {
     <tr><td>${isRtl ? 'رقم الموتور' : 'Motor number'}</td><td>${escapeHtml(mc?.engineNumber ?? '-')}</td></tr>
     <tr><td>${isRtl ? 'نوع الوقود' : 'Fuel type'}</td><td>${escapeHtml(mc?.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : mc?.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown'))}</td></tr>
     <tr><td>${isRtl ? 'الحالة' : 'Status'}</td><td>${escapeHtml(mc?.status ?? '-')}</td></tr>
-    <tr class="total-row"><td>${isRtl ? 'السعر الإجمالي' : 'Total Price'}</td><td>${money(Number(doneSale.salePrice))}</td></tr>
+    <tr><td>${isRtl ? 'السعر قبل الخصم' : 'Original Price'}</td><td>${money(originalPrice)}</td></tr>
+    <tr><td>${isRtl ? 'الخصم' : 'Discount'}</td><td>${money(discountAmount)}</td></tr>
+    <tr class="total-row"><td>${isRtl ? 'السعر النهائي بعد الخصم' : 'Final Price After Discount'}</td><td>${money(finalPrice)}</td></tr>
     <tr><td>${isRtl ? 'المبلغ المدفوع' : 'Amount Paid'}</td><td>${money(Number(doneSale.amountPaid))}</td></tr>
-    <tr><td>${isRtl ? 'متبقي' : 'Remaining Balance'}</td><td>${money(remainingBalance)}</td></tr>
+    <tr><td>${isRtl ? 'المبلغ المتبقي' : 'Remaining Balance'}</td><td>${money(remainingBalance)}</td></tr>
   </tbody>
 </table>
 <table>
@@ -304,8 +312,14 @@ export default function Sales({ lang }: { lang: Lang }) {
       setError(isRtl ? 'يجب رفع صورتي البطاقة أو اختيار عميل لديه صور محفوظة.' : 'Upload both ID images or select a customer with stored images.');
       return;
     }
-    if (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0 || Number(amountPaid) > selectedMc.price) {
-      setError(isRtl ? 'المبلغ المدفوع يجب ألا يتجاوز إجمالي الفاتورة.' : 'Amount paid must not exceed the invoice total.');
+    const parsedDiscount = Number(discount);
+    const finalPrice = Math.max(selectedMc.price - parsedDiscount, 0);
+    if (!Number.isFinite(parsedDiscount) || parsedDiscount < 0 || parsedDiscount > selectedMc.price) {
+      setError(isRtl ? 'الخصم يجب أن يكون رقمًا غير سالب ولا يتجاوز سعر الدراجة.' : 'Discount must be a valid non-negative value and cannot exceed the motorcycle price.');
+      return;
+    }
+    if (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0 || Number(amountPaid) > finalPrice) {
+      setError(isRtl ? 'المبلغ المدفوع يجب ألا يتجاوز السعر النهائي بعد الخصم.' : 'Amount paid must not exceed the final price after discount.');
       return;
     }
     createSale.mutate();
@@ -437,7 +451,7 @@ export default function Sales({ lang }: { lang: Lang }) {
                   <button
                     key={mc.id}
                     className="mc-card"
-                    onClick={() => { setSelectedMc(mc); setAmountPaid(String(mc.price)); setError(null); setStep(step === 'reservation-list' ? 'reserve-details' : 'cash-details'); }}
+                    onClick={() => { setSelectedMc(mc); setDiscount('0'); setAmountPaid(String(mc.price)); setError(null); setStep(step === 'reservation-list' ? 'reserve-details' : 'cash-details'); }}
                     dir={isRtl ? 'rtl' : 'ltr'}
                   >
                     {/* Card header — gradient image area */}
@@ -475,7 +489,7 @@ export default function Sales({ lang }: { lang: Lang }) {
 
       {/* ── STEP 3: Cash Details ─────────────────────── */}
       {step === 'cash-details' && selectedMc && (
-        <form className="surface-panel sales-step-panel sales-cash-panel" onSubmit={e => { e.preventDefault(); if ((!customerIdFile && !customerIdPreview) || (!customerIdBackFile && !customerIdBackPreview)) { setError(isRtl ? 'يجب رفع صورتي البطاقة أو اختيار عميل لديه صور محفوظة.' : 'Upload both ID images or select a customer with stored images.'); return; } if (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0 || Number(amountPaid) > selectedMc.price) { setError(isRtl ? 'المبلغ المدفوع يجب ألا يتجاوز إجمالي الفاتورة.' : 'Amount paid must not exceed the invoice total.'); return; } setStep('confirm'); setError(null); }} style={{ maxWidth: 540, margin: '0 auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <form className="surface-panel sales-step-panel sales-cash-panel" onSubmit={e => { e.preventDefault(); if ((!customerIdFile && !customerIdPreview) || (!customerIdBackFile && !customerIdBackPreview)) { setError(isRtl ? 'يجب رفع صورتي البطاقة أو اختيار عميل لديه صور محفوظة.' : 'Upload both ID images or select a customer with stored images.'); return; } const parsedDiscount = Number(discount); const finalPrice = Math.max(selectedMc.price - parsedDiscount, 0); if (!Number.isFinite(parsedDiscount) || parsedDiscount < 0 || parsedDiscount > selectedMc.price) { setError(isRtl ? 'الخصم يجب أن يكون رقمًا غير سالب ولا يتجاوز سعر الدراجة.' : 'Discount must be a valid non-negative value and cannot exceed the motorcycle price.'); return; } if (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0 || Number(amountPaid) > finalPrice) { setError(isRtl ? 'المبلغ المدفوع يجب ألا يتجاوز السعر النهائي بعد الخصم.' : 'Amount paid must not exceed the final price after discount.'); return; } setStep('confirm'); setError(null); }} style={{ maxWidth: 540, margin: '0 auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <h2 style={{ margin: 0 }}>{isRtl ? 'بيانات العميل' : 'Customer Details'}</h2>
           <p style={{ color: 'var(--text-2)', margin: 0 }}>
             {isRtl ? 'الدراجة: ' : 'Motorcycle: '}<strong>{isRtl ? selectedMc.brand.nameAr : selectedMc.brand.nameEn} {selectedMc.model}</strong>
@@ -558,12 +572,26 @@ export default function Sales({ lang }: { lang: Lang }) {
           {customerIdBackPreview && <img src={customerIdBackPreview} alt={isRtl ? 'معاينة ظهر البطاقة' : 'ID back preview'} style={{ width: 160, height: 110, objectFit: 'cover', borderRadius: 8 }} />}
           {customerIdBackFile && <p style={{ color: 'var(--green)', fontSize: '0.875rem', margin: 0 }}>✔ {customerIdBackFile.name}</p>}
           <label>
-            {isRtl ? 'المبلغ المدفوع' : 'Amount paid'}
-            <input type="number" min="0" max={selectedMc.price} step="0.01" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} />
+            {isRtl ? 'الخصم' : 'Discount'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input type="number" min="0" max={selectedMc.price} step="0.01" value={discount} onChange={e => setDiscount(e.target.value)} />
+              <span style={{ color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{isRtl ? 'ج.م' : 'EGP'}</span>
+            </div>
           </label>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-            <span>{isRtl ? 'متبقي' : 'Remaining balance'}</span>
-            <span>{money(Math.max(selectedMc.price - (Number(amountPaid) || 0), 0))}</span>
+            <span>{isRtl ? 'السعر النهائي بعد الخصم' : 'Final price after discount'}</span>
+            <span>{money(Math.max(selectedMc.price - (Number(discount) || 0), 0))}</span>
+          </div>
+          <label>
+            {isRtl ? 'المبلغ المدفوع' : 'Amount paid'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input type="number" min="0" max={Math.max(selectedMc.price - (Number(discount) || 0), 0)} step="0.01" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} />
+              <span style={{ color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{isRtl ? 'ج.م' : 'EGP'}</span>
+            </div>
+          </label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+            <span>{isRtl ? 'المتبقي' : 'Remaining balance'}</span>
+            <span>{money(Math.max((selectedMc.price - (Number(discount) || 0)) - (Number(amountPaid) || 0), 0))}</span>
           </div>
           <button className="primary-action" type="submit" style={{ padding: '0.9rem' }}>
             {isRtl ? 'متابعة →' : 'Continue →'}
@@ -670,9 +698,11 @@ export default function Sales({ lang }: { lang: Lang }) {
             {(customerIdFile || customerIdPreview) && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>🪪 {customerIdFile?.name ?? (isRtl ? 'الصورة الأمامية محفوظة' : 'Stored front image')}</p>}
             {(customerIdBackFile || customerIdBackPreview) && <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>🪪 {customerIdBackFile?.name ?? (isRtl ? 'الصورة الخلفية محفوظة' : 'Stored back image')}</p>}
           </div>
-          <div style={{ background: 'var(--bg-2)', borderRadius: '0.5rem', padding: '1rem', display: 'flex', justifyContent: 'space-between' }}>
-            <span>{isRtl ? 'إجمالي الفاتورة' : 'Invoice total'}: {money(selectedMc.price)}</span>
-            <span>{isRtl ? 'متبقي' : 'Remaining'}: {money(Math.max(selectedMc.price - (Number(amountPaid) || 0), 0))}</span>
+          <div style={{ background: 'var(--bg-2)', borderRadius: '0.5rem', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <span>{isRtl ? 'السعر قبل الخصم' : 'Original price'}: {money(selectedMc.price)}</span>
+            <span>{isRtl ? 'الخصم' : 'Discount'}: {money(Number(discount) || 0)}</span>
+            <span>{isRtl ? 'السعر النهائي بعد الخصم' : 'Final price after discount'}: {money(Math.max(selectedMc.price - (Number(discount) || 0), 0))}</span>
+            <span>{isRtl ? 'متبقي' : 'Remaining'}: {money(Math.max((selectedMc.price - (Number(discount) || 0)) - (Number(amountPaid) || 0), 0))}</span>
           </div>
 
           {/* Payment method */}
@@ -713,8 +743,12 @@ export default function Sales({ lang }: { lang: Lang }) {
             </p>
           )}
           <p style={{ fontWeight: 700, color: 'var(--accent-primary)', fontSize: '1.2rem', margin: 0 }}>
-            {money(Number(doneSale.salePrice))} — {doneSale.paymentMethod === 'CASH' ? (isRtl ? 'نقدي' : 'Cash') : 'Visa'}
+            {money(Number(doneSale.finalPrice ?? Math.max(Number(doneSale.salePrice) - Number(doneSale.discount ?? 0), 0)))} — {doneSale.paymentMethod === 'CASH' ? (isRtl ? 'نقدي' : 'Cash') : 'Visa'}
           </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', borderRadius: '0.5rem', background: 'var(--bg-2)' }}>
+            <span>{isRtl ? 'السعر قبل الخصم' : 'Original price'}: {money(Number(doneSale.salePrice))}</span>
+            <span>{isRtl ? 'الخصم' : 'Discount'}: {money(Number(doneSale.discount ?? 0))}</span>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', borderRadius: '0.5rem', background: 'var(--bg-2)' }}>
             <span>{isRtl ? 'المدفوع' : 'Paid'}: {money(Number(doneSale.amountPaid))}</span>
             <strong>{isRtl ? 'متبقي' : 'Remaining'}: {money(Number(doneSale.remainingBalance))}</strong>
