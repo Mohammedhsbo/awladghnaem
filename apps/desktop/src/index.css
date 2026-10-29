@@ -2242,22 +2242,390 @@ body { background: var(--pos-bg); }
 .box-status-option input { accent-color: var(--blue); }
 .motorcycle-boxes-page .modal-actions { display: flex; justify-content: flex-start; gap: .65rem; margin-top: 1rem; }
 .inline-success { padding: .7rem .85rem; border: 1px solid #b7ead7; border-radius: 8px; color: #047857; background: #ecfdf5; }
-.boxes-list-panel .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
-.boxes-list-panel .panel-heading h2 { margin: 0; }
-.boxes-list-panel .panel-heading > span { min-width: 2rem; padding: .2rem .55rem; border-radius: 99px; color: var(--blue); background: var(--blue-glow); text-align: center; font-weight: 750; }
-.attendance-table-wrap { width: 100%; overflow-x: auto; }
-.motorcycle-boxes-page .attendance-table { width: 100%; min-width: 900px; border-collapse: collapse; text-align: right; }
-.motorcycle-boxes-page .attendance-table th, .motorcycle-boxes-page .attendance-table td { padding: .8rem .7rem; border-bottom: 1px solid var(--pos-border); white-space: nowrap; }
-.motorcycle-boxes-page .attendance-table th { color: var(--text-2); background: var(--pos-surface); font-size: .76rem; font-weight: 750; }
-.motorcycle-boxes-page .attendance-table td { color: var(--text-primary); font-size: .82rem; }
-.motorcycle-boxes-page .attendance-table .box-list-motorcycles { white-space: normal; }
-.box-list-motorcycles > span { display: block; min-width: 175px; }
-.motorcycle-boxes-page .attendance-table .box-component-status { white-space: normal; }
-.box-component-status > span { display: block; min-width: 100px; }
-.motorcycle-boxes-page .status-text { color: var(--text-2); font-size: .78rem; font-weight: 650; }
-.motorcycle-boxes-page .box-row-actions { display: flex; align-items: center; gap: .35rem; }
-.motorcycle-boxes-page .box-delete-button { color: #b42318; }
-.motorcycle-boxes-page .box-delete-button:hover { color: #fff; background: #b42318; }
+/* ─── Boxes List Panel Header ──────────────── */
+.boxes-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--pos-border);
+  flex-wrap: wrap;
+}
+.boxes-panel-title-group {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+}
+.boxes-panel-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  color: var(--blue);
+  box-shadow: 0 2px 8px var(--blue-glow);
+  flex-shrink: 0;
+}
+.boxes-panel-title-group h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.boxes-panel-subtitle {
+  display: block;
+  font-size: .78rem;
+  color: var(--text-tertiary);
+  margin-top: .15rem;
+}
+
+/* Header controls: Search & Filters */
+.boxes-header-controls {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+  flex-wrap: wrap;
+}
+.boxes-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.boxes-search-icon {
+  position: absolute;
+  right: .8rem;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.boxes-search-input {
+  padding: .5rem .8rem .5rem 2.2rem;
+  padding-right: 2.2rem;
+  border-radius: 10px;
+  border: 1px solid var(--pos-border);
+  background: var(--pos-bg);
+  font-size: .82rem;
+  color: var(--text-primary);
+  width: 220px;
+  transition: all .2s;
+}
+.boxes-search-input:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-glow);
+}
+.boxes-search-clear {
+  position: absolute;
+  left: .6rem;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: .2rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 50%;
+}
+.boxes-search-clear:hover {
+  color: var(--text-primary);
+  background: #e2e8f0;
+}
+
+.boxes-filter-pills {
+  display: inline-flex;
+  background: var(--pos-bg-soft);
+  padding: .25rem;
+  border-radius: 10px;
+  gap: .25rem;
+  border: 1px solid var(--pos-border);
+}
+.boxes-filter-pill {
+  padding: .35rem .75rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.boxes-filter-pill:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.6);
+}
+.boxes-filter-pill.active {
+  background: #ffffff;
+  color: var(--blue);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+/* ─── Premium Boxes Table ──────────────────── */
+.boxes-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid var(--pos-border);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);
+  background: #ffffff;
+}
+.boxes-premium-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+  text-align: right;
+  font-size: .84rem;
+}
+.boxes-premium-table thead tr {
+  background: linear-gradient(135deg, #f1f5fb 0%, #eaf0fb 100%);
+}
+.boxes-premium-table th {
+  padding: 0;
+  font-size: .73rem;
+  font-weight: 800;
+  color: var(--blue-dark);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  border-bottom: 2px solid #dbeafe;
+  white-space: nowrap;
+}
+.boxes-th-inner {
+  display: block;
+  padding: .95rem 1rem;
+}
+.boxes-premium-table td {
+  padding: 1rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  transition: background .15s;
+}
+.boxes-premium-table tbody tr {
+  transition: background .15s;
+}
+.boxes-premium-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.boxes-row-alt td {
+  background: #fafbff;
+}
+.boxes-premium-table tbody tr:hover td {
+  background: #f0f6ff;
+}
+.boxes-premium-table tbody tr:hover td:first-child {
+  box-shadow: inset 4px 0 0 var(--blue);
+}
+
+/* Box number cell */
+.boxes-box-number-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: .65rem;
+}
+.boxes-box-number-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  color: var(--blue);
+  flex-shrink: 0;
+}
+.boxes-number-text {
+  font-size: .95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: .02em;
+}
+
+/* Count cell */
+.boxes-count-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: .45rem .65rem;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+.boxes-count-val {
+  font-size: .95rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+.boxes-count-label {
+  font-size: .65rem;
+  font-weight: 650;
+  color: var(--text-tertiary);
+  margin-top: .1rem;
+}
+
+/* Overall Status Tag */
+.boxes-status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .4rem .75rem;
+  border-radius: 99px;
+  font-size: .74rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.boxes-status-tag.tag-complete {
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+.boxes-status-tag.tag-missing {
+  color: #b45309;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+}
+
+/* ─── Unit list & Component Chips ──────────── */
+.boxes-unit-list {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  width: 100%;
+}
+.boxes-unit-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .85rem;
+  padding: .45rem .75rem;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e9f2;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+  transition: border-color .15s, background .15s;
+}
+.boxes-unit-item:hover {
+  border-color: #cbd5e1;
+  background: #fbfcfe;
+}
+.boxes-unit-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: .75rem;
+  font-weight: 750;
+  color: #334155;
+  white-space: nowrap;
+  min-width: 95px;
+}
+.boxes-unit-chips {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex-wrap: wrap;
+}
+.boxes-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .28rem .6rem;
+  border-radius: 7px;
+  font-size: .73rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.boxes-chip.chip-present {
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+.boxes-chip.chip-missing {
+  color: #b91c1c;
+  background: #fff1f0;
+  border: 1px solid #fecdd3;
+}
+.boxes-chip .chip-key {
+  opacity: .85;
+  font-weight: 600;
+}
+.boxes-chip .chip-val {
+  font-weight: 750;
+}
+
+/* Date cell */
+.boxes-date-cell {
+  color: var(--text-secondary);
+  font-size: .8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Action buttons */
+.boxes-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex-wrap: nowrap;
+}
+.boxes-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .4rem .8rem;
+  border-radius: 9px;
+  font-size: .77rem;
+  font-weight: 750;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .18s;
+  white-space: nowrap;
+  line-height: 1;
+}
+.boxes-action-edit {
+  color: var(--blue);
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.boxes-action-edit:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: var(--blue-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(37,99,235,.16);
+}
+.boxes-action-delete {
+  color: #b42318;
+  background: #fff1f0;
+  border-color: #f3c2bd;
+}
+.boxes-action-delete:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(220,38,38,.14);
+}
+.boxes-action-delete:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* Legacy status text */
+.motorcycle-boxes-page .status-text {
+  color: var(--text-tertiary);
+  font-size: .78rem;
+  font-weight: 600;
+}
 @media (max-width: 700px) {
   .motorcycle-boxes-page .surface-panel { padding: 1rem; }
   .box-status-grid { grid-template-columns: 1fr; }

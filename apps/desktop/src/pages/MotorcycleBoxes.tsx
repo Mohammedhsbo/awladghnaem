@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit3, Package, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, CheckCircle2, Edit3, Package, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import {
   desktopPermissions,
   motorcycleBoxes,
@@ -67,22 +67,25 @@ function ComponentStatus({
   </fieldset>;
 }
 
-function ComponentStatusSummary({
-  box,
-  field,
-}: {
-  box: MotorcycleBox;
-  field: 'motorPresent' | 'chassisPresent' | 'tirePresent';
-}) {
-  if (box.motorcycleUnits?.length) {
-    return <>{box.motorcycleUnits.map((unit, index) => <span
-      className={unit[field] ? 'status-pill' : 'status-text'}
-      key={unit.id}
-    >
-      {motorcycleLabel(index)}: {unit[field] ? 'موجود' : 'غير موجود'}
-    </span>)}</>;
-  }
-  return <span className={box[field] ? 'status-pill' : 'status-text'}>{box[field] ? 'موجود' : 'غير موجود'}</span>;
+function getBoxStats(box: MotorcycleBox) {
+  const units = box.motorcycleUnits?.length
+    ? box.motorcycleUnits
+    : [{
+        id: box.id,
+        motorPresent: box.motorPresent,
+        chassisPresent: box.chassisPresent,
+        tirePresent: box.tirePresent,
+      }];
+  let totalParts = units.length * 3;
+  let presentParts = 0;
+  units.forEach(u => {
+    if (u.motorPresent) presentParts++;
+    if (u.chassisPresent) presentParts++;
+    if (u.tirePresent) presentParts++;
+  });
+  const missingParts = totalParts - presentParts;
+  const isComplete = missingParts === 0;
+  return { units, totalParts, presentParts, missingParts, isComplete };
 }
 
 export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
@@ -92,6 +95,8 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [editingBox, setEditingBox] = useState<MotorcycleBox | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'complete' | 'incomplete'>('all');
   const isSuperAdmin = user.role.name === 'super_admin';
 
   const permissions = useQuery({
@@ -394,56 +399,218 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
 
     {!canCreate && !editingBox && <div className="state-panel">لديك صلاحية عرض الصناديق فقط.</div>}
 
-    <div className="surface-panel boxes-list-panel">
-      <div className="panel-heading"><h2>الصناديق المحفوظة</h2><span>{list.data?.length ?? 0}</span></div>
-      {list.isLoading && <div className="state-panel">جاري تحميل الصناديق...</div>}
-      {list.isError && <div className="state-panel" role="alert">
-        <p>تعذر تحميل الصناديق.</p>
-        <button className="secondary-action" onClick={() => list.refetch()}>إعادة المحاولة</button>
-      </div>}
-      {!list.isLoading && !list.isError && list.data?.length === 0 && <div className="empty-state">لا توجد صناديق محفوظة حتى الآن.</div>}
-      {!list.isLoading && !list.isError && !!list.data?.length && <div className="attendance-table-wrap">
-        <table className="attendance-table">
-          <thead><tr>
-            <th>رقم/اسم الصندوق</th><th>قوائم الموتوسيكلات</th><th>العدد</th><th>الموتور</th><th>الشاسيه</th><th>الكاوتش</th><th>تاريخ الإضافة</th>
-            {(canEdit || canDelete) && <th>الإجراءات</th>}
-          </tr></thead>
-          <tbody>{list.data.map(box => <tr key={box.id}>
-            <td>{box.boxNumber}</td>
-            <td className="box-list-motorcycles">
-              {box.motorcycleUnits?.length
-                ? box.motorcycleUnits.map((unit, index) => <span key={unit.id}>{motorcycleLabel(index)}</span>)
-                : <span>بيانات المكونات الفردية غير مسجلة</span>}
-            </td>
-            <td>{box.motorcycleCount ?? box.motorcycleUnits?.length ?? 1}</td>
-            <td className="box-component-status"><ComponentStatusSummary box={box} field="motorPresent" /></td>
-            <td className="box-component-status"><ComponentStatusSummary box={box} field="chassisPresent" /></td>
-            <td className="box-component-status"><ComponentStatusSummary box={box} field="tirePresent" /></td>
-            <td>{new Date(box.createdAt).toLocaleDateString('ar-EG')}</td>
-            {(canEdit || canDelete) && <td className="box-row-actions">
-              {canEdit && <button type="button" className="icon-button" title="تعديل" aria-label={`تعديل ${box.boxNumber}`} onClick={() => openEdit(box)}>
-                <Edit3 size={16} />
-              </button>}
-              {canDelete && <button
-                type="button"
-                className="icon-button box-delete-button"
-                title="حذف"
-                aria-label={`حذف ${box.boxNumber}`}
-                disabled={remove.isPending}
-                onClick={() => {
-                  if (window.confirm(`هل أنت متأكد من حذف الصندوق "${box.boxNumber}"؟`)) {
-                    setError('');
-                    setSuccess('');
-                    remove.mutate(box.id);
-                  }
-                }}
-              >
-                <Trash2 size={16} />
-              </button>}
-            </td>}
-          </tr>)}</tbody>
-        </table>
-      </div>}
-    </div>
+    {(() => {
+      const filteredBoxes = (list.data ?? []).filter(box => {
+        const matchesSearch = !searchQuery.trim() || box.boxNumber.toLowerCase().includes(searchQuery.trim().toLowerCase());
+        if (!matchesSearch) return false;
+        const { isComplete } = getBoxStats(box);
+        if (statusFilter === 'complete') return isComplete;
+        if (statusFilter === 'incomplete') return !isComplete;
+        return true;
+      });
+
+      const totalBoxes = list.data?.length ?? 0;
+      const completeBoxes = (list.data ?? []).filter(b => getBoxStats(b).isComplete).length;
+      const incompleteBoxes = totalBoxes - completeBoxes;
+
+      return (
+        <div className="surface-panel boxes-list-panel">
+          <div className="boxes-panel-header">
+            <div className="boxes-panel-title-group">
+              <div className="boxes-panel-icon-wrap">
+                <Package size={22} className="boxes-panel-icon" />
+              </div>
+              <div>
+                <h2>الصناديق المحفوظة</h2>
+                <span className="boxes-panel-subtitle">إجمالي {totalBoxes} صندوق في المخزون</span>
+              </div>
+            </div>
+
+            <div className="boxes-header-controls">
+              <div className="boxes-search-box">
+                <Search size={15} className="boxes-search-icon" />
+                <input
+                  type="text"
+                  placeholder="بحث برقم الصندوق..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="boxes-search-input"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="boxes-search-clear"
+                    onClick={() => setSearchQuery('')}
+                    title="مسح البحث"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
+              <div className="boxes-filter-pills">
+                <button
+                  type="button"
+                  className={`boxes-filter-pill ${statusFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('all')}
+                >
+                  الكل ({totalBoxes})
+                </button>
+                <button
+                  type="button"
+                  className={`boxes-filter-pill ${statusFilter === 'complete' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('complete')}
+                >
+                  مكتمل ({completeBoxes})
+                </button>
+                <button
+                  type="button"
+                  className={`boxes-filter-pill ${statusFilter === 'incomplete' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('incomplete')}
+                >
+                  به نواقص ({incompleteBoxes})
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {list.isLoading && <div className="state-panel">جاري تحميل الصناديق...</div>}
+          {list.isError && <div className="state-panel" role="alert">
+            <p>تعذر تحميل الصناديق.</p>
+            <button className="secondary-action" onClick={() => list.refetch()}>إعادة المحاولة</button>
+          </div>}
+          {!list.isLoading && !list.isError && totalBoxes === 0 && (
+            <div className="empty-state">لا توجد صناديق محفوظة حتى الآن.</div>
+          )}
+          {!list.isLoading && !list.isError && totalBoxes > 0 && filteredBoxes.length === 0 && (
+            <div className="empty-state">لا توجد نتائج مطابقة للبحث أو الفلتر المحدد.</div>
+          )}
+
+          {!list.isLoading && !list.isError && filteredBoxes.length > 0 && (
+            <div className="boxes-table-wrap">
+              <table className="boxes-premium-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '15%' }}><span className="boxes-th-inner">رقم / اسم الصندوق</span></th>
+                    <th style={{ width: '9%' }}><span className="boxes-th-inner">العدد</span></th>
+                    <th style={{ width: '13%' }}><span className="boxes-th-inner">حالة الاكتمال</span></th>
+                    <th><span className="boxes-th-inner">فحص مكونات الموتوسيكلات (الموتور • الشاسيه • الكاوتش)</span></th>
+                    <th style={{ width: '11%' }}><span className="boxes-th-inner">تاريخ الإضافة</span></th>
+                    {(canEdit || canDelete) && <th style={{ width: '13%' }}><span className="boxes-th-inner">الإجراءات</span></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBoxes.map((box, rowIndex) => {
+                    const stats = getBoxStats(box);
+                    return (
+                      <tr key={box.id} className={rowIndex % 2 === 1 ? 'boxes-row-alt' : ''}>
+                        <td>
+                          <div className="boxes-box-number-cell">
+                            <span className="boxes-box-number-icon"><Package size={16} /></span>
+                            <strong className="boxes-number-text">{box.boxNumber}</strong>
+                          </div>
+                        </td>
+
+                        <td>
+                          <div className="boxes-count-cell">
+                            <span className="boxes-count-val">{box.motorcycleCount ?? stats.units.length}</span>
+                            <span className="boxes-count-label">موتوسيكل</span>
+                          </div>
+                        </td>
+
+                        <td>
+                          {stats.isComplete ? (
+                            <span className="boxes-status-tag tag-complete">
+                              <CheckCircle2 size={13} strokeWidth={2.5} />
+                              <span>مكتمل ({stats.totalParts}/{stats.totalParts})</span>
+                            </span>
+                          ) : (
+                            <span className="boxes-status-tag tag-missing">
+                              <AlertCircle size={13} strokeWidth={2.5} />
+                              <span>نواقص ({stats.missingParts})</span>
+                            </span>
+                          )}
+                        </td>
+
+                        <td>
+                          <div className="boxes-unit-list">
+                            {stats.units.map((unit, index) => (
+                              <div className="boxes-unit-item" key={unit.id || index}>
+                                <span className="boxes-unit-badge">{motorcycleLabel(index)}</span>
+                                <div className="boxes-unit-chips">
+                                  <span className={`boxes-chip ${unit.motorPresent ? 'chip-present' : 'chip-missing'}`}>
+                                    {unit.motorPresent ? <Check size={12} strokeWidth={2.5} /> : <X size={12} strokeWidth={2.5} />}
+                                    <span className="chip-key">الموتور:</span>
+                                    <span className="chip-val">{unit.motorPresent ? 'موجود' : 'غير موجود'}</span>
+                                  </span>
+                                  <span className={`boxes-chip ${unit.chassisPresent ? 'chip-present' : 'chip-missing'}`}>
+                                    {unit.chassisPresent ? <Check size={12} strokeWidth={2.5} /> : <X size={12} strokeWidth={2.5} />}
+                                    <span className="chip-key">الشاسيه:</span>
+                                    <span className="chip-val">{unit.chassisPresent ? 'موجود' : 'غير موجود'}</span>
+                                  </span>
+                                  <span className={`boxes-chip ${unit.tirePresent ? 'chip-present' : 'chip-missing'}`}>
+                                    {unit.tirePresent ? <Check size={12} strokeWidth={2.5} /> : <X size={12} strokeWidth={2.5} />}
+                                    <span className="chip-key">الكاوتش:</span>
+                                    <span className="chip-val">{unit.tirePresent ? 'موجود' : 'غير موجود'}</span>
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+
+                        <td>
+                          <span className="boxes-date-cell">
+                            {new Date(box.createdAt).toLocaleDateString('ar-EG')}
+                          </span>
+                        </td>
+
+                        {(canEdit || canDelete) && (
+                          <td>
+                            <div className="boxes-actions-cell">
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  className="boxes-action-btn boxes-action-edit"
+                                  title="تعديل"
+                                  aria-label={`تعديل ${box.boxNumber}`}
+                                  onClick={() => openEdit(box)}
+                                >
+                                  <Edit3 size={14} />
+                                  <span>تعديل</span>
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  type="button"
+                                  className="boxes-action-btn boxes-action-delete"
+                                  title="حذف"
+                                  aria-label={`حذف ${box.boxNumber}`}
+                                  disabled={remove.isPending}
+                                  onClick={() => {
+                                    if (window.confirm(`هل أنت متأكد من حذف الصندوق "${box.boxNumber}"؟`)) {
+                                      setError('');
+                                      setSuccess('');
+                                      remove.mutate(box.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                  <span>حذف</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    })()}
   </section>;
 }
