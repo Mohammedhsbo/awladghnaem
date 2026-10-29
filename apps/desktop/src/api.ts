@@ -1212,23 +1212,10 @@ export interface MotorcycleBoxUnit {
     brandId: string;
     categoryId: string;
     branchId: string;
-  };
+  } | null;
 }
 
-export interface MotorcycleBoxUnitInput {
-  vin: string;
-  engineNumber: string;
-  fuelType: 'PETROL' | 'ELECTRIC';
-  model: string;
-  year: number;
-  color?: string;
-  engineSize?: string;
-  price: number;
-  costPrice: number;
-  condition: 'NEW' | 'USED' | 'IMPORTED';
-  brandId: string;
-  categoryId: string;
-  branchId: string;
+export interface MotorcycleBoxChecklistInput {
   motorPresent: boolean;
   chassisPresent: boolean;
   tirePresent: boolean;
@@ -1236,10 +1223,8 @@ export interface MotorcycleBoxUnitInput {
 
 export interface CreateMotorcycleBoxInput {
   boxNumber: string;
-  motorPresent: boolean;
-  chassisPresent: boolean;
-  tirePresent: boolean;
-  motorcycles?: MotorcycleBoxUnitInput[];
+  motorcycleCount: number;
+  motorcycles: MotorcycleBoxChecklistInput[];
 }
 
 export const motorcycleBoxes = {

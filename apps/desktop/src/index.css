@@ -2224,18 +2224,18 @@ body { background: var(--pos-bg); }
 .box-number-label { display: grid; gap: .45rem; max-width: 520px; color: var(--text-2); font-size: .82rem; font-weight: 700; }
 .box-number-label input { min-height: 44px; padding: 0 .75rem; border: 1px solid var(--pos-border); border-radius: 9px; color: var(--text-primary); background: #fff; font: inherit; }
 .box-number-label input:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
-.box-count-field { display: flex; flex-wrap: wrap; gap: .8rem 1rem; margin: 1rem 0 0; padding: .8rem 1rem; border: 1px solid var(--pos-border); border-radius: 10px; }
-.box-count-field legend { padding: 0 .3rem; color: var(--text-primary); font-size: .84rem; font-weight: 750; }
+.box-information-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; max-width: 860px; }
+.box-count-label { display: grid; gap: .45rem; color: var(--text-2); font-size: .82rem; font-weight: 700; }
+.box-count-label input { min-height: 44px; padding: 0 .75rem; border: 1px solid var(--pos-border); border-radius: 9px; color: var(--text-primary); background: #fff; font: inherit; }
+.box-count-label input:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+.box-form-section-title { margin: 1.25rem 0 .65rem; color: var(--text-primary); font-size: .92rem; }
 .box-count-warning { margin: .65rem 0 0; color: #854d0e; font-size: .8rem; }
 .box-motorcycle-sections { display: grid; gap: 1rem; margin-top: 1rem; }
 .box-motorcycle-section { min-width: 0; padding: 1rem; border: 1px solid var(--pos-border); border-radius: 12px; background: var(--pos-surface); }
-.box-motorcycle-section h3 { margin: 0 0 1rem; color: var(--text-primary); font-size: 1rem; }
-.box-inventory-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
-.box-inventory-field { display: grid; align-content: start; gap: .4rem; min-width: 0; color: var(--text-2); font-size: .8rem; font-weight: 700; }
-.box-inventory-field input, .box-inventory-field select { min-width: 0; min-height: 42px; padding: 0 .65rem; border: 1px solid var(--pos-border); border-radius: 8px; color: var(--text-primary); background: #fff; font: inherit; }
-.box-inventory-field input:focus, .box-inventory-field select:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
+.box-motorcycle-section h4 { margin: 0 0 .7rem; color: var(--text-primary); font-size: .92rem; }
 .box-field-error { color: #b42318; font-size: .74rem; font-weight: 600; }
-.box-status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; margin-top: 1.1rem; }
+.box-status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
+.box-status-grid > div { min-width: 0; }
 .box-status-field { display: flex; flex-wrap: wrap; gap: .8rem 1rem; min-width: 0; margin: 0; padding: .8rem 1rem; border: 1px solid var(--pos-border); border-radius: 10px; }
 .box-status-field legend { padding: 0 .3rem; color: var(--text-primary); font-size: .84rem; font-weight: 750; }
 .box-status-option { display: inline-flex; align-items: center; gap: .4rem; color: var(--text-2); font-size: .8rem; cursor: pointer; }
@@ -2260,11 +2260,10 @@ body { background: var(--pos-bg); }
 .motorcycle-boxes-page .box-delete-button:hover { color: #fff; background: #b42318; }
 @media (max-width: 700px) {
   .motorcycle-boxes-page .surface-panel { padding: 1rem; }
-  .box-inventory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .box-status-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
-  .box-inventory-grid { grid-template-columns: 1fr; }
+  .box-information-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
   .date-range-filter { width: 100%; }
