@@ -1183,11 +1183,55 @@ export const suppliers = {
 export interface MotorcycleBox {
   id: string;
   boxNumber: string;
+  motorcycleCount: number;
   motorPresent: boolean;
   chassisPresent: boolean;
   tirePresent: boolean;
+  motorcycleUnits: MotorcycleBoxUnit[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MotorcycleBoxUnit {
+  id: string;
+  motorPresent: boolean;
+  chassisPresent: boolean;
+  tirePresent: boolean;
+  motorcycle: {
+    id: string;
+    vin: string;
+    engineNumber: string | null;
+    fuelType: 'PETROL' | 'ELECTRIC' | null;
+    model: string;
+    year: number;
+    color: string | null;
+    engineSize: string | null;
+    price: number | string;
+    costPrice: number | string;
+    condition: 'NEW' | 'USED' | 'IMPORTED';
+    brandId: string;
+    categoryId: string;
+    branchId: string;
+  };
+}
+
+export interface MotorcycleBoxUnitInput {
+  vin: string;
+  engineNumber: string;
+  fuelType: 'PETROL' | 'ELECTRIC';
+  model: string;
+  year: number;
+  color?: string;
+  engineSize?: string;
+  price: number;
+  costPrice: number;
+  condition: 'NEW' | 'USED' | 'IMPORTED';
+  brandId: string;
+  categoryId: string;
+  branchId: string;
+  motorPresent: boolean;
+  chassisPresent: boolean;
+  tirePresent: boolean;
 }
 
 export interface CreateMotorcycleBoxInput {
@@ -1195,6 +1239,7 @@ export interface CreateMotorcycleBoxInput {
   motorPresent: boolean;
   chassisPresent: boolean;
   tirePresent: boolean;
+  motorcycles?: MotorcycleBoxUnitInput[];
 }
 
 export const motorcycleBoxes = {
