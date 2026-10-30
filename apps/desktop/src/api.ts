@@ -1,4 +1,4 @@
-﻿function normalizeApiBase(url: string) {
+function normalizeApiBase(url: string) {
   const normalized = url.replace(/\/+$/, '');
   return normalized.endsWith('/api/v1') ? normalized : `${normalized}/api/v1`;
 }

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Check, CheckCircle2, Edit3, Package, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, CheckCircle2, Clock, Edit3, Package, RefreshCw, Search, Trash2, Wrench, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   desktopPermissions,
@@ -743,19 +743,31 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                                   </div>
                                   <div className="boxes-assembly-actions">
                                     <span className={`boxes-assembly-status ${assembled ? 'assembled' : 'unassembled'}`}>
-                                      {assembled ? 'تم التجميع' : 'لم يتم التجميع'}
+                                      {assembled ? (
+                                        <>
+                                          <CheckCircle2 size={13} strokeWidth={2.5} />
+                                          <span>تم التجميع</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Clock size={12} strokeWidth={2.2} />
+                                          <span>لم يتم التجميع</span>
+                                        </>
+                                      )}
                                     </span>
                                     {!assembled && canAssemble && hasEntry && (
                                       <button
                                         type="button"
                                         className="boxes-assemble-btn"
+                                        title="بدء تجميع هذا الموتوسيكل وإضافته للمخزون"
                                         onClick={() => navigate(
                                           `/inventory/new?boxId=${encodeURIComponent(box.id)}`
                                           + `&boxMotorcycleEntryId=${encodeURIComponent(unit.id)}`
                                           + `&boxNumber=${encodeURIComponent(box.boxNumber)}`,
                                         )}
                                       >
-                                        تم التجميع
+                                        <Wrench size={12} strokeWidth={2.2} />
+                                        <span>تم التجميع</span>
                                       </button>
                                     )}
                                   </div>
