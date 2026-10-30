@@ -559,6 +559,11 @@ export const motorcycles = {
   },
   get: (id: string) => apiFetch<MotorcycleSearchResult>(`/motorcycles/${id}`),
   create: (data: MotorcycleCreatePayload) => apiFetch<MotorcycleSearchResult>('/motorcycles', { method: 'POST', body: JSON.stringify(data) }),
+  createFromBox: (boxId: string, entryId: string, data: MotorcycleCreatePayload) =>
+    apiFetch<MotorcycleSearchResult>(`/motorcycles/from-box/${encodeURIComponent(boxId)}/${encodeURIComponent(entryId)}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   update: (id: string, data: MotorcycleInput) => apiFetch<MotorcycleSearchResult>(`/motorcycles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   updateColor: (id: string, color: string) => apiFetch<MotorcycleSearchResult>(`/motorcycles/${id}`, { method: 'PATCH', body: JSON.stringify({ color }) }),
   updateStatus: (id: string, status: string, reason?: string) => apiFetch<MotorcycleSearchResult>(`/motorcycles/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
@@ -1188,6 +1193,7 @@ export const suppliers = {
 export interface MotorcycleBox {
   id: string;
   boxNumber: string;
+  notes: string | null;
   motorcycleCount: number;
   motorPresent: boolean;
   chassisPresent: boolean;
@@ -1200,6 +1206,7 @@ export interface MotorcycleBox {
 
 export interface MotorcycleBoxUnit {
   id: string;
+  motorcycleId: string | null;
   motorPresent: boolean;
   chassisPresent: boolean;
   tirePresent: boolean;
@@ -1233,11 +1240,12 @@ export interface CreateMotorcycleBoxInput {
   boxNumber: string;
   boxCount: number;
   motorcycleCount: number;
-  boxes: Array<{ motorcycles: MotorcycleBoxChecklistInput[] }>;
+  boxes: Array<{ notes?: string | null; motorcycles: MotorcycleBoxChecklistInput[] }>;
 }
 
 export interface UpdateMotorcycleBoxInput {
   boxNumber: string;
+  notes?: string | null;
   motorcycleCount: number;
   motorcycles: MotorcycleBoxChecklistInput[];
 }

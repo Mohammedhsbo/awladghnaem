@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Check, CheckCircle2, Edit3, Package, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   desktopPermissions,
   motorcycleBoxes,
@@ -20,6 +21,7 @@ type MotorcycleChecklistDraft = {
 
 type BoxForm = {
   boxNumber: string;
+  notes: string[];
   boxCount: number | '';
   motorcycleCount: number | '';
   boxes: MotorcycleChecklistDraft[][];
@@ -34,6 +36,7 @@ const emptyChecklist = (): MotorcycleChecklistDraft => ({
 
 const emptyForm = (): BoxForm => ({
   boxNumber: '',
+  notes: [''],
   boxCount: 1,
   motorcycleCount: 1,
   boxes: [[emptyChecklist()]],
@@ -87,6 +90,8 @@ function getBoxStats(box: MotorcycleBox) {
     ? box.motorcycleUnits
     : [{
         id: box.id,
+        motorcycleId: null,
+        motorcycle: null,
         motorPresent: box.motorPresent,
         chassisPresent: box.chassisPresent,
         tirePresent: box.tirePresent,
@@ -122,6 +127,10 @@ function componentChip(label: string, value: boolean | null) {
 
 export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const selectedBoxId = searchParams.get('boxId');
+  const selectedEntryId = searchParams.get('entryId');
   const [form, setForm] = useState<BoxForm>(emptyForm);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -148,6 +157,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     permission.resource === 'motorcycle' && permission.action === 'delete',
   );
   const canCreate = pageCanEdit && hasCreatePermission;
+  const canAssemble = hasCreatePermission;
   const canEdit = pageCanEdit && hasUpdatePermission;
   const canDelete = pageCanEdit && hasDeletePermission;
   const canView = isSuperAdmin || permissions.data?.find(permission => permission.pageKey === 'boxes')?.canView === true;
@@ -258,7 +268,10 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
             : []),
         )
         : [];
-      return { ...current, boxCount, boxes };
+      const notes = validCount
+        ? Array.from({ length: boxCount }, (_, index) => current.notes[index] ?? '')
+        : [];
+      return { ...current, boxCount, boxes, notes };
     });
     setValidationErrors(current => {
       const next = { ...current };
@@ -278,6 +291,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     setEditingBox(box);
     setForm({
       boxNumber: box.boxNumber,
+      notes: [box.notes ?? ''],
       boxCount: 1,
       motorcycleCount,
       boxes: [Array.from({ length: motorcycleCount }, (_, index) => {
@@ -382,6 +396,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     if (editingBox) {
       const input: UpdateMotorcycleBoxInput = {
         boxNumber: form.boxNumber.trim(),
+        notes: form.notes[0]?.trim() || null,
         motorcycleCount: form.motorcycleCount,
         motorcycles: checklistGroups[0].motorcycles,
       };
@@ -392,7 +407,10 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
       boxNumber: form.boxNumber.trim(),
       boxCount: form.boxCount,
       motorcycleCount: form.motorcycleCount,
-      boxes: checklistGroups,
+      boxes: checklistGroups.map((group, index) => ({
+        ...group,
+        notes: form.notes[index]?.trim() || null,
+      })),
     };
     save.mutate(input);
   };
@@ -485,6 +503,22 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
               <h4>{boxLabel(boxIndex)}</h4>
               <span>{boxNumber || 'أدخل اسم الصندوق أو رقمه'}</span>
             </header>
+            <label className="box-notes-field">
+              ملاحظات {Number(form.boxCount) > 1 ? `(${boxLabel(boxIndex)})` : ''}
+              <textarea
+                value={form.notes[boxIndex] ?? ''}
+                onChange={event => {
+                  const notes = event.target.value;
+                  setForm(current => ({
+                    ...current,
+                    notes: current.notes.map((value, index) => index === boxIndex ? notes : value),
+                  }));
+                }}
+                maxLength={5000}
+                rows={3}
+                placeholder="اكتب ملاحظات هذا الصندوق..."
+              />
+            </label>
             <div className="box-motorcycle-sections">
               {motorcycles.map((motorcycle, motorcycleIndex) => {
                 const fieldError = (field: string) =>
@@ -651,11 +685,17 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                   {filteredBoxes.map((box, rowIndex) => {
                     const stats = getBoxStats(box);
                     return (
-                      <tr key={box.id} className={rowIndex % 2 === 1 ? 'boxes-row-alt' : ''}>
+                      <tr key={box.id} className={[
+                        rowIndex % 2 === 1 ? 'boxes-row-alt' : '',
+                        selectedBoxId === box.id ? 'boxes-row-selected' : '',
+                      ].filter(Boolean).join(' ')}>
                         <td>
                           <div className="boxes-box-number-cell">
                             <span className="boxes-box-number-icon"><Package size={16} /></span>
-                            <strong className="boxes-number-text">{box.boxNumber}</strong>
+                            <div className="boxes-box-number-details">
+                              <strong className="boxes-number-text">{box.boxNumber}</strong>
+                              {box.notes && <span className="boxes-box-notes">{box.notes}</span>}
+                            </div>
                           </div>
                         </td>
 
@@ -686,17 +726,42 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
 
                         <td>
                           <div className="boxes-unit-list">
-                            {stats.units.map((unit, index) => (
-                              <div className="boxes-unit-item" key={unit.id || index}>
+                            {stats.units.map((unit, index) => {
+                              const hasEntry = box.motorcycleUnits?.some(entry => entry.id === unit.id) === true;
+                              const assembled = Boolean(unit.motorcycleId || unit.motorcycle);
+                              return <div
+                                className={`boxes-unit-item ${selectedEntryId === unit.id ? 'boxes-unit-item-selected' : ''}`}
+                                key={unit.id || index}
+                              >
                                 <span className="boxes-unit-badge">{motorcycleLabel(index)}</span>
-                                <div className="boxes-unit-chips">
-                                  {componentChip('الموتور', unit.motorPresent)}
-                                  {componentChip('الشاسيه', unit.chassisPresent)}
-                                  {componentChip('الكاوتش', unit.tirePresent)}
-                                  {componentChip('الشكمان', unit.exhaustPresent)}
+                                <div className="boxes-unit-details">
+                                  <div className="boxes-unit-chips">
+                                    {componentChip('الموتور', unit.motorPresent)}
+                                    {componentChip('الشاسيه', unit.chassisPresent)}
+                                    {componentChip('الكاوتش', unit.tirePresent)}
+                                    {componentChip('الشكمان', unit.exhaustPresent)}
+                                  </div>
+                                  <div className="boxes-assembly-actions">
+                                    <span className={`boxes-assembly-status ${assembled ? 'assembled' : 'unassembled'}`}>
+                                      {assembled ? 'تم التجميع' : 'لم يتم التجميع'}
+                                    </span>
+                                    {!assembled && canAssemble && hasEntry && (
+                                      <button
+                                        type="button"
+                                        className="boxes-assemble-btn"
+                                        onClick={() => navigate(
+                                          `/inventory/new?boxId=${encodeURIComponent(box.id)}`
+                                          + `&boxMotorcycleEntryId=${encodeURIComponent(unit.id)}`
+                                          + `&boxNumber=${encodeURIComponent(box.boxNumber)}`,
+                                        )}
+                                      >
+                                        تم التجميع
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              </div>;
+                            })}
                           </div>
                         </td>
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Save } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { brands, branches, categories, motorcycles, type BrandSummary, type CategorySummary, type MotorcycleInput } from '../api';
 import ImageUpload from '../components/ImageUpload';
 
@@ -28,8 +28,17 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
   const isRtl = lang === 'ar';
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const qc = useQueryClient();
   const editing = Boolean(id);
+  const boxId = searchParams.get('boxId');
+  const boxMotorcycleEntryId = searchParams.get('boxMotorcycleEntryId');
+  const boxNumber = searchParams.get('boxNumber');
+  const hasAssemblyContext = Boolean(boxId && boxMotorcycleEntryId);
+  const invalidAssemblyContext = Boolean(boxId) !== Boolean(boxMotorcycleEntryId);
+  const boxReturnUrl = boxId
+    ? `/boxes?boxId=${encodeURIComponent(boxId)}${boxMotorcycleEntryId ? `&entryId=${encodeURIComponent(boxMotorcycleEntryId)}` : ''}`
+    : '/inventory';
 
   const [form, setForm] = useState<MotorcycleInput>(() => emptyForm(branchId));
   const [error, setError] = useState<string | null>(null);
@@ -66,25 +75,33 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
   }, [branchId, editing]);
 
   const createMut = useMutation({
-    mutationFn: (data: MotorcycleInput) => motorcycles.create({
-      vin: String(data.vin ?? '').trim(),
-      engineNumber: String(data.engineNumber ?? '').trim(),
-      fuelType: data.fuelType!,
-      condition: data.condition ?? 'NEW',
-      model: String(data.model ?? '').trim(),
-      year: Number(data.year || new Date().getFullYear()),
-      color: String(data.color ?? '').trim(),
-      engineSize: String(data.engineSize ?? '').trim(),
-      price: Number(data.price ?? 0),
-      costPrice: Number(data.costPrice ?? 0),
-      brandId: String(data.brandId ?? '').trim(),
-      categoryId: String(data.categoryId ?? '').trim(),
-      branchId: String(data.branchId ?? '').trim(),
-      images: data.images ?? [],
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['desktop-inventory'] });
-      navigate('/inventory');
+    mutationFn: (data: MotorcycleInput) => {
+      const payload = {
+        vin: String(data.vin ?? '').trim(),
+        engineNumber: String(data.engineNumber ?? '').trim(),
+        fuelType: data.fuelType!,
+        condition: data.condition ?? 'NEW',
+        model: String(data.model ?? '').trim(),
+        year: Number(data.year || new Date().getFullYear()),
+        color: String(data.color ?? '').trim(),
+        engineSize: String(data.engineSize ?? '').trim(),
+        price: Number(data.price ?? 0),
+        costPrice: Number(data.costPrice ?? 0),
+        brandId: String(data.brandId ?? '').trim(),
+        categoryId: String(data.categoryId ?? '').trim(),
+        branchId: String(data.branchId ?? '').trim(),
+        images: data.images ?? [],
+      };
+      return hasAssemblyContext
+        ? motorcycles.createFromBox(boxId!, boxMotorcycleEntryId!, payload)
+        : motorcycles.create(payload);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['desktop-inventory'] }),
+        ...(hasAssemblyContext ? [qc.invalidateQueries({ queryKey: ['motorcycle-boxes'] })] : []),
+      ]);
+      navigate(hasAssemblyContext ? boxReturnUrl : '/inventory');
     },
     onError: (reason: Error) => setError(reason.message),
   });
@@ -107,6 +124,11 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
   const submit = (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+
+    if (invalidAssemblyContext) {
+      setError(isRtl ? 'بيانات الصندوق غير مكتملة. ارجع إلى الصندوق وحاول مرة أخرى.' : 'Box assembly details are incomplete. Return to the box and try again.');
+      return;
+    }
 
     const vin = String(form.vin ?? '').trim();
     const engineNumber = String(form.engineNumber ?? '').trim();
@@ -150,7 +172,7 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
     <section className="desktop-page inventory-form-page" dir={isRtl ? 'rtl' : 'ltr'}>
       <div className="page-heading inventory-form-heading">
         <div className="inventory-form-title">
-          <button type="button" className="secondary-action inventory-back-button" onClick={() => navigate('/inventory')}>
+          <button type="button" className="secondary-action inventory-back-button" onClick={() => navigate(boxReturnUrl)}>
             <ArrowLeft size={16} />
           </button>
           <div>
@@ -166,6 +188,12 @@ export default function InventoryForm({ lang, branchId }: { lang: Lang; branchId
           <span className="inventory-form-status">{editing ? (isRtl ? 'تعديل' : 'Editing') : (isRtl ? 'جديد' : 'New')}</span>
         </div>
         {error && <div className="inline-error inventory-form-error">{error}</div>}
+        {hasAssemblyContext && (
+          <div className="inventory-box-context" role="status">
+            <strong>تجميع موتوسيكل من صندوق</strong>
+            <span>{boxNumber ? `الصندوق: ${boxNumber}` : `رقم الصندوق: ${boxId}`}</span>
+          </div>
+        )}
 
         <div className="inventory-fields">
           <label className="field-label">
