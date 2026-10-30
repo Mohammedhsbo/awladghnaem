@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle, Edit3, ExternalLink, MessageCircle, Save, Trash2, User, Bike, FileImage, Printer } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Download, Edit3, ExternalLink, MessageCircle, Save, Trash2, User, Bike, FileImage, Printer } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { buildWhatsAppUrl as createWhatsAppUrl, normalizeWhatsAppPhone } from '../../../../packages/shared-types/src/whatsapp';
 import { customerFinancing, inquiries, type InstallmentRequest } from '../api';
@@ -37,6 +37,8 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
   const [whatsappError, setWhatsappError] = useState<string | null>(null);
   const [whatsappPreview, setWhatsappPreview] = useState<{ phone: string; message: string } | null>(null);
   const [whatsappNotice, setWhatsappNotice] = useState<string | null>(null);
+  const [documentsDownloading, setDocumentsDownloading] = useState(false);
+  const [documentsNotice, setDocumentsNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [form, setForm] = useState({ buyerName: '', buyerPhone: '', financingCompanyId: '', downPayment: '' });
 
   const query = useQuery<InstallmentRequest>({
@@ -127,6 +129,38 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
       setWhatsappNotice(isRtl ? 'تم نسخ الرسالة.' : 'Message copied.');
     } catch {
       setWhatsappNotice(isRtl ? 'تعذر النسخ تلقائياً. حدد النص وانسخه يدوياً.' : 'Could not copy automatically. Select and copy the message manually.');
+    }
+  };
+  const downloadRequestDocuments = async () => {
+    if (!id || documentsDownloading) return;
+    setDocumentsDownloading(true);
+    setDocumentsNotice(null);
+    try {
+      const blob = await customerFinancing.downloadDocuments(id);
+      if (blob.size === 0) throw new Error('The downloaded document archive was empty.');
+      const isZip = blob.type.includes('zip');
+      const objectUrl = URL.createObjectURL(blob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = objectUrl;
+      downloadLink.download = `Installment-Request-${request?.id ?? id}-Documents.${isZip ? 'zip' : 'pdf'}`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      setDocumentsNotice({
+        type: 'success',
+        message: isRtl ? 'تم تحميل مستندات الطلب بنجاح.' : 'Request documents downloaded successfully.',
+      });
+    } catch (reason) {
+      const error = reason as Error & { code?: string };
+      setDocumentsNotice({
+        type: 'error',
+        message: error.code === 'INSTALLMENT_REQUEST_DOCUMENTS_NOT_FOUND'
+          ? 'لا توجد مستندات مرفقة بهذا الطلب'
+          : (isRtl ? 'تعذر تحميل مستندات الطلب. حاول مرة أخرى.' : 'Could not download request documents. Please try again.'),
+      });
+    } finally {
+      setDocumentsDownloading(false);
     }
   };
 
@@ -302,6 +336,17 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
         <button className="premium-action-btn solid" style={{ background: '#25D366', borderColor: '#25D366', color: '#fff', direction: isRtl ? 'rtl' : 'ltr' }} onClick={() => whatsapp.mutate()} disabled={whatsapp.isPending}>
           <MessageCircle size={17} /> {isRtl ? 'إرسال لشركة التمويل عبر واتساب' : 'Send to financing company via WhatsApp'}
         </button>
+        <button
+          className="premium-action-btn outline"
+          onClick={() => void downloadRequestDocuments()}
+          disabled={documentsDownloading}
+          aria-busy={documentsDownloading}
+        >
+          {documentsDownloading ? <span className="spinner" /> : <Download size={17} />}
+          {documentsDownloading
+            ? (isRtl ? 'جارٍ تجهيز المستندات...' : 'Preparing documents...')
+            : (isRtl ? 'تحميل مستندات الطلب PDF' : 'Download request documents PDF')}
+        </button>
         <button className="premium-action-btn outline" onClick={printRequest}>
           <Printer size={17} /> {isRtl ? 'طباعة الطلب' : 'Print request'}
         </button>
@@ -335,6 +380,15 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
         </button>
       </div>
       {whatsappError && <div className="state-panel" role="alert" style={{ marginBottom: '1.25rem' }}>{whatsappError}</div>}
+      {documentsNotice && (
+        <div
+          className="state-panel"
+          role={documentsNotice.type === 'error' ? 'alert' : 'status'}
+          style={{ marginBottom: '1.25rem' }}
+        >
+          {documentsNotice.message}
+        </div>
+      )}
       {whatsappPreview && (
         <div role="presentation" onClick={() => setWhatsappPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.55)', display: 'grid', placeItems: 'center', padding: '1rem' }}>
           <div role="dialog" aria-modal="true" aria-labelledby="whatsapp-preview-title" dir={isRtl ? 'rtl' : 'ltr'} onClick={event => event.stopPropagation()} style={{ width: 'min(720px, 100%)', maxHeight: '90vh', overflow: 'auto', background: '#fff', borderRadius: 16, padding: '1.25rem', boxShadow: '0 20px 60px rgba(15,23,42,0.28)' }}>

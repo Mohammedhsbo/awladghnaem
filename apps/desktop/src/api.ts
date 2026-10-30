@@ -204,13 +204,18 @@ async function apiFetchBlob(path: string, canRefresh = true): Promise<Blob> {
 
   if (!response.ok) {
     let message = 'Request failed';
+    let code: string | undefined;
     try {
-      const body = await response.json() as { error?: { message?: string }; message?: string };
+      const body = await response.json() as { error?: { code?: string; message?: string }; code?: string; message?: string };
       message = body.error?.message ?? body.message ?? message;
+      code = body.error?.code ?? body.code;
     } catch {
       message = response.statusText || message;
     }
-    throw new Error(message);
+    const error = new Error(message) as Error & { code?: string; status?: number };
+    error.code = code;
+    error.status = response.status;
+    throw error;
   }
 
   return response.blob();
@@ -1941,6 +1946,7 @@ export const customerFinancing = {
     category: { nameAr: string; nameEn: string };
   }>>(`/admin/installment-requests/${id}/motorcycle-options`),
   getRequest: (id: string) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}`),
+  downloadDocuments: (id: string) => apiFetchBlob(`/admin/installment-requests/${encodeURIComponent(id)}/documents`),
   updateRequest: (id: string, data: { buyerName?: string; buyerPhone?: string; financingCompanyId?: string; downPayment?: number }) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}/details`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteRequest: (id: string) => apiFetch<InstallmentRequest>(`/admin/installment-requests/${id}`, { method: 'DELETE' }),
   getWhatsAppMessage: (id: string) => apiFetch<{ phone: string; message: string }>(`/admin/installment-requests/${id}/whatsapp`),
