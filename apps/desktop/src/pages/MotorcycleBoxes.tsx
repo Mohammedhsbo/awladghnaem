@@ -8,37 +8,52 @@ import {
   type DesktopUser,
   type MotorcycleBox,
   type MotorcycleBoxChecklistInput,
+  type UpdateMotorcycleBoxInput,
 } from '../api';
 
 type MotorcycleChecklistDraft = {
   motorPresent: boolean | null;
   chassisPresent: boolean | null;
   tirePresent: boolean | null;
+  exhaustPresent: boolean | null;
 };
 
 type BoxForm = {
   boxNumber: string;
+  boxCount: number | '';
   motorcycleCount: number | '';
-  motorcycles: MotorcycleChecklistDraft[];
+  boxes: MotorcycleChecklistDraft[][];
 };
 
 const emptyChecklist = (): MotorcycleChecklistDraft => ({
   motorPresent: null,
   chassisPresent: null,
   tirePresent: null,
+  exhaustPresent: null,
 });
 
 const emptyForm = (): BoxForm => ({
   boxNumber: '',
+  boxCount: 1,
   motorcycleCount: 1,
-  motorcycles: [emptyChecklist()],
+  boxes: [[emptyChecklist()]],
 });
 
-function motorcycleLabel(index: number) {
+function ordinal(index: number) {
   const ordinals = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع', 'العاشر'];
-  return index < ordinals.length
-    ? `الموتوسيكل ${ordinals[index]}`
-    : `الموتوسيكل رقم ${index + 1}`;
+  return index < ordinals.length ? ordinals[index] : `رقم ${index + 1}`;
+}
+
+function motorcycleLabel(index: number) {
+  return `الموتوسيكل ${ordinal(index)}`;
+}
+
+function boxLabel(index: number) {
+  return `الصندوق ${ordinal(index)}`;
+}
+
+function generatedBoxNumber(base: string, index: number, boxCount: number) {
+  return boxCount > 1 && index > 0 ? `${base}-${index + 1}` : base;
 }
 
 function ComponentStatus({
@@ -75,17 +90,34 @@ function getBoxStats(box: MotorcycleBox) {
         motorPresent: box.motorPresent,
         chassisPresent: box.chassisPresent,
         tirePresent: box.tirePresent,
+        exhaustPresent: box.exhaustPresent,
       }];
-  let totalParts = units.length * 3;
+  const totalParts = units.length * 4;
   let presentParts = 0;
-  units.forEach(u => {
-    if (u.motorPresent) presentParts++;
-    if (u.chassisPresent) presentParts++;
-    if (u.tirePresent) presentParts++;
+  let missingParts = 0;
+  let unknownParts = 0;
+  units.forEach(unit => {
+    [unit.motorPresent, unit.chassisPresent, unit.tirePresent, unit.exhaustPresent].forEach(value => {
+      if (value === true) presentParts++;
+      else if (value === false) missingParts++;
+      else unknownParts++;
+    });
   });
-  const missingParts = totalParts - presentParts;
-  const isComplete = missingParts === 0;
-  return { units, totalParts, presentParts, missingParts, isComplete };
+  const isComplete = missingParts === 0 && unknownParts === 0;
+  return { units, totalParts, presentParts, missingParts, unknownParts, isComplete };
+}
+
+function componentChip(label: string, value: boolean | null) {
+  const statusClass = value === null ? 'chip-unknown' : value ? 'chip-present' : 'chip-missing';
+  return <span className={`boxes-chip ${statusClass}`}>
+    {value === null
+      ? <AlertCircle size={12} strokeWidth={2.5} />
+      : value
+        ? <Check size={12} strokeWidth={2.5} />
+        : <X size={12} strokeWidth={2.5} />}
+    <span className="chip-key">{label}:</span>
+    <span className="chip-val">{value === null ? 'غير مسجل' : value ? 'موجود' : 'غير موجود'}</span>
+  </span>;
 }
 
 export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
@@ -126,21 +158,29 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     enabled: canView,
   });
 
-  const save = useMutation({
-    mutationFn: (data: CreateMotorcycleBoxInput) => editingBox
-      ? motorcycleBoxes.update(editingBox.id, data)
-      : motorcycleBoxes.create(data),
+  const save = useMutation<MotorcycleBox | MotorcycleBox[], Error, CreateMotorcycleBoxInput | UpdateMotorcycleBoxInput>({
+    mutationFn: (data: CreateMotorcycleBoxInput | UpdateMotorcycleBoxInput) => {
+      if (editingBox) {
+        if (!('motorcycles' in data)) throw new Error('Invalid box update payload.');
+        return motorcycleBoxes.update(editingBox.id, data);
+      }
+      if (!('boxes' in data)) throw new Error('Invalid box creation payload.');
+      return motorcycleBoxes.create(data);
+    },
     onSuccess: () => {
       setForm(emptyForm());
       setEditingBox(null);
       setValidationErrors({});
       setError('');
-      setSuccess(editingBox ? 'تم تعديل الصندوق بنجاح.' : 'تمت إضافة الصندوق بنجاح.');
+      setSuccess(editingBox ? 'تم تعديل الصندوق بنجاح.' : 'تمت إضافة الصناديق بنجاح.');
       void queryClient.invalidateQueries({ queryKey: ['motorcycle-boxes'] });
     },
     onError: (reason: Error) => {
       setSuccess('');
-      setError(reason.message || 'تعذر حفظ الصندوق. حاول مرة أخرى.');
+      const code = 'code' in reason ? reason.code : undefined;
+      setError(code === 'MOTORCYCLE_BOX_NUMBER_EXISTS'
+        ? 'أحد أرقام الصناديق المولدة مستخدم بالفعل. غيّر اسم الصندوق وحاول مرة أخرى.'
+        : reason.message || 'تعذر حفظ الصندوق. حاول مرة أخرى.');
     },
   });
   const remove = useMutation({
@@ -156,43 +196,76 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     },
   });
 
-  const updateMotorcycle = (index: number, patch: Partial<MotorcycleChecklistDraft>) => {
+  const updateMotorcycle = (boxIndex: number, motorcycleIndex: number, patch: Partial<MotorcycleChecklistDraft>) => {
     setForm(current => ({
       ...current,
-      motorcycles: current.motorcycles.map((motorcycle, currentIndex) =>
-        currentIndex === index ? { ...motorcycle, ...patch } : motorcycle,
+      boxes: current.boxes.map((box, currentBoxIndex) => currentBoxIndex === boxIndex
+        ? box.map((motorcycle, currentMotorcycleIndex) =>
+          currentMotorcycleIndex === motorcycleIndex ? { ...motorcycle, ...patch } : motorcycle,
+        )
+        : box,
       ),
     }));
     setValidationErrors(current => {
       const next = { ...current };
-      Object.keys(patch).forEach(field => delete next[`motorcycles.${index}.${field}`]);
+      Object.keys(patch).forEach(field => {
+        delete next[`boxes.${boxIndex}.motorcycles.${motorcycleIndex}.${field}`];
+      });
       return next;
     });
     setError('');
     setSuccess('');
   };
 
-  const updateCount = (value: string) => {
+  const updateMotorcycleCount = (value: string) => {
     const motorcycleCount = value === '' ? '' : Number(value);
     setForm(current => {
       const validCount = typeof motorcycleCount === 'number'
         && Number.isInteger(motorcycleCount)
         && motorcycleCount > 0
         && motorcycleCount <= 2_147_483_647;
-      const motorcycles = validCount
-        ? Array.from(
-          { length: motorcycleCount },
-          (_, index) => current.motorcycles[index] ?? emptyChecklist(),
-        )
-        : [];
-      return { ...current, motorcycleCount, motorcycles };
+      const boxes = current.boxes.map(box => validCount
+        ? Array.from({ length: motorcycleCount }, (_, index) => box[index] ?? emptyChecklist())
+        : [],
+      );
+      return { ...current, motorcycleCount, boxes };
     });
     setValidationErrors(current => {
       const next = { ...current };
       delete next.motorcycleCount;
       Object.keys(next).forEach(key => {
-        const index = Number(key.match(/^motorcycles\.(\d+)\./)?.[1]);
-        if (Number.isInteger(index) && index >= Number(motorcycleCount || 0)) delete next[key];
+        const match = key.match(/^boxes\.(\d+)\.motorcycles\.(\d+)\./);
+        const motorcycleIndex = Number(match?.[2]);
+        if (Number.isInteger(motorcycleIndex) && motorcycleIndex >= Number(motorcycleCount || 0)) delete next[key];
+      });
+      return next;
+    });
+    setError('');
+    setSuccess('');
+  };
+
+  const updateBoxCount = (value: string) => {
+    const boxCount = value === '' ? '' : Number(value);
+    setForm(current => {
+      const validCount = typeof boxCount === 'number'
+        && Number.isInteger(boxCount)
+        && boxCount > 0
+        && boxCount <= 2_147_483_647;
+      const boxes = validCount
+        ? Array.from({ length: boxCount }, (_, index) => current.boxes[index]
+          ?? (typeof current.motorcycleCount === 'number'
+            ? Array.from({ length: current.motorcycleCount }, emptyChecklist)
+            : []),
+        )
+        : [];
+      return { ...current, boxCount, boxes };
+    });
+    setValidationErrors(current => {
+      const next = { ...current };
+      delete next.boxCount;
+      Object.keys(next).forEach(key => {
+        const boxIndex = Number(key.match(/^boxes\.(\d+)\./)?.[1]);
+        if (Number.isInteger(boxIndex) && boxIndex >= Number(boxCount || 0)) delete next[key];
       });
       return next;
     });
@@ -205,16 +278,18 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     setEditingBox(box);
     setForm({
       boxNumber: box.boxNumber,
+      boxCount: 1,
       motorcycleCount,
-      motorcycles: Array.from({ length: motorcycleCount }, (_, index) => {
+      boxes: [Array.from({ length: motorcycleCount }, (_, index) => {
         const unit = box.motorcycleUnits?.[index];
         const hasLegacyStatuses = index === 0 && !box.motorcycleUnits?.length;
         return {
           motorPresent: unit?.motorPresent ?? (hasLegacyStatuses ? box.motorPresent : null),
           chassisPresent: unit?.chassisPresent ?? (hasLegacyStatuses ? box.chassisPresent : null),
           tirePresent: unit?.tirePresent ?? (hasLegacyStatuses ? box.tirePresent : null),
+          exhaustPresent: unit?.exhaustPresent ?? (hasLegacyStatuses ? box.exhaustPresent : null),
         };
-      }),
+      })],
     });
     setValidationErrors({});
     setError('');
@@ -233,20 +308,38 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     const errors: Record<string, string> = {};
     if (!form.boxNumber.trim()) errors.boxNumber = 'اسم الصندوق أو رقمه مطلوب.';
     if (
+      typeof form.boxCount !== 'number'
+      || !Number.isInteger(form.boxCount)
+      || form.boxCount < 1
+      || form.boxCount > 2_147_483_647
+    ) {
+      errors.boxCount = 'أدخل عددًا صحيحًا موجبًا للصناديق.';
+    } else if (form.boxes.length !== form.boxCount) {
+      errors.boxCount = 'عدد قوائم الصناديق يجب أن يطابق عدد الصناديق.';
+    } else if (typeof form.boxCount === 'number' && form.boxes.some((_, index) =>
+      generatedBoxNumber(form.boxNumber.trim(), index, Number(form.boxCount)).length > 100,
+    )) {
+      errors.boxNumber = 'يجب ألا يتجاوز طول أرقام الصناديق المولدة 100 حرف.';
+    }
+    if (
       typeof form.motorcycleCount !== 'number'
       || !Number.isInteger(form.motorcycleCount)
       || form.motorcycleCount < 1
       || form.motorcycleCount > 2_147_483_647
     ) {
       errors.motorcycleCount = 'أدخل عددًا صحيحًا موجبًا للموتوسيكلات.';
-    } else if (form.motorcycles.length !== form.motorcycleCount) {
-      errors.motorcycleCount = 'عدد قوائم المكونات يجب أن يطابق عدد الموتوسيكلات.';
+    } else if (form.boxes.some(box => box.length !== form.motorcycleCount)) {
+      errors.motorcycleCount = 'عدد قوائم المكونات يجب أن يطابق عدد الموتوسيكلات في كل صندوق.';
     }
 
-    form.motorcycles.forEach((motorcycle, index) => {
-      if (motorcycle.motorPresent === null) errors[`motorcycles.${index}.motorPresent`] = 'حدد حالة الموتور.';
-      if (motorcycle.chassisPresent === null) errors[`motorcycles.${index}.chassisPresent`] = 'حدد حالة الشاسيه.';
-      if (motorcycle.tirePresent === null) errors[`motorcycles.${index}.tirePresent`] = 'حدد حالة الكاوتش.';
+    form.boxes.forEach((box, boxIndex) => {
+      box.forEach((motorcycle, motorcycleIndex) => {
+        const key = (field: string) => `boxes.${boxIndex}.motorcycles.${motorcycleIndex}.${field}`;
+        if (motorcycle.motorPresent === null) errors[key('motorPresent')] = 'حدد حالة الموتور.';
+        if (motorcycle.chassisPresent === null) errors[key('chassisPresent')] = 'حدد حالة الشاسيه.';
+        if (motorcycle.tirePresent === null) errors[key('tirePresent')] = 'حدد حالة الكاوتش.';
+        if (motorcycle.exhaustPresent === null) errors[key('exhaustPresent')] = 'حدد حالة الشكمان.';
+      });
     });
     return errors;
   };
@@ -261,29 +354,47 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
       setError('يرجى مراجعة الحقول المحددة قبل الحفظ.');
       return;
     }
-    if (typeof form.motorcycleCount !== 'number') return;
+    if (typeof form.boxCount !== 'number' || typeof form.motorcycleCount !== 'number') return;
 
-    const motorcycles: MotorcycleBoxChecklistInput[] = [];
-    for (const motorcycle of form.motorcycles) {
-      if (
-        motorcycle.motorPresent === null
-        || motorcycle.chassisPresent === null
-        || motorcycle.tirePresent === null
-      ) {
-        setError('يرجى تحديد حالة المكونات لكل موتوسيكل.');
-        return;
+    const checklistGroups: Array<{ motorcycles: MotorcycleBoxChecklistInput[] }> = [];
+    for (const box of form.boxes) {
+      const motorcycles: MotorcycleBoxChecklistInput[] = [];
+      for (const motorcycle of box) {
+        if (
+          motorcycle.motorPresent === null
+          || motorcycle.chassisPresent === null
+          || motorcycle.tirePresent === null
+          || motorcycle.exhaustPresent === null
+        ) {
+          setError('يرجى تحديد حالة المكونات لكل موتوسيكل في كل صندوق.');
+          return;
+        }
+        motorcycles.push({
+          motorPresent: motorcycle.motorPresent,
+          chassisPresent: motorcycle.chassisPresent,
+          tirePresent: motorcycle.tirePresent,
+          exhaustPresent: motorcycle.exhaustPresent,
+        });
       }
-      motorcycles.push({
-        motorPresent: motorcycle.motorPresent,
-        chassisPresent: motorcycle.chassisPresent,
-        tirePresent: motorcycle.tirePresent,
-      });
+      checklistGroups.push({ motorcycles });
     }
-    save.mutate({
+
+    if (editingBox) {
+      const input: UpdateMotorcycleBoxInput = {
+        boxNumber: form.boxNumber.trim(),
+        motorcycleCount: form.motorcycleCount,
+        motorcycles: checklistGroups[0].motorcycles,
+      };
+      save.mutate(input);
+      return;
+    }
+    const input: CreateMotorcycleBoxInput = {
       boxNumber: form.boxNumber.trim(),
+      boxCount: form.boxCount,
       motorcycleCount: form.motorcycleCount,
-      motorcycles,
-    });
+      boxes: checklistGroups,
+    };
+    save.mutate(input);
   };
 
   if (!isSuperAdmin && permissions.isLoading) {
@@ -334,6 +445,20 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
           {validationErrors.boxNumber && <span className="box-field-error">{validationErrors.boxNumber}</span>}
         </label>
         <label className="box-count-label">
+          عدد الصناديق
+          <input
+            type="number"
+            min={1}
+            max={2_147_483_647}
+            step={1}
+            value={form.boxCount}
+            onChange={event => updateBoxCount(event.target.value)}
+            disabled={Boolean(editingBox)}
+            required
+          />
+          {validationErrors.boxCount && <span className="box-field-error">{validationErrors.boxCount}</span>}
+        </label>
+        <label className="box-count-label">
           عدد الموتوسيكلات في الصندوق
           <input
             type="number"
@@ -341,7 +466,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
             max={2_147_483_647}
             step={1}
             value={form.motorcycleCount}
-            onChange={event => updateCount(event.target.value)}
+            onChange={event => updateMotorcycleCount(event.target.value)}
             required
           />
           {validationErrors.motorcycleCount && <span className="box-field-error">{validationErrors.motorcycleCount}</span>}
@@ -352,39 +477,62 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
       </p>}
 
       <h3 className="box-form-section-title">قائمة مكونات الموتوسيكلات</h3>
-      <div className="box-motorcycle-sections">
-        {form.motorcycles.map((motorcycle, index) => {
-          const fieldError = (field: string) => validationErrors[`motorcycles.${index}.${field}`];
-          return <section className="box-motorcycle-section" key={index}>
-            <h4>{motorcycleLabel(index)}</h4>
-            <div className="box-status-grid">
-              <div>
-                <ComponentStatus
-                  label="الموتور"
-                  name={`motorcycle-${index}-motor`}
-                  value={motorcycle.motorPresent}
-                  onChange={value => updateMotorcycle(index, { motorPresent: value })}
-                />
-                {fieldError('motorPresent') && <span className="box-field-error" role="alert">{fieldError('motorPresent')}</span>}
-              </div>
-              <div>
-                <ComponentStatus
-                  label="الشاسيه"
-                  name={`motorcycle-${index}-chassis`}
-                  value={motorcycle.chassisPresent}
-                  onChange={value => updateMotorcycle(index, { chassisPresent: value })}
-                />
-                {fieldError('chassisPresent') && <span className="box-field-error" role="alert">{fieldError('chassisPresent')}</span>}
-              </div>
-              <div>
-                <ComponentStatus
-                  label="الكاوتش"
-                  name={`motorcycle-${index}-tire`}
-                  value={motorcycle.tirePresent}
-                  onChange={value => updateMotorcycle(index, { tirePresent: value })}
-                />
-                {fieldError('tirePresent') && <span className="box-field-error" role="alert">{fieldError('tirePresent')}</span>}
-              </div>
+      <div className="box-list-preview">
+        {form.boxes.map((motorcycles, boxIndex) => {
+          const boxNumber = generatedBoxNumber(form.boxNumber.trim(), boxIndex, Number(form.boxCount || 0));
+          return <section className="box-preview-section" key={boxIndex}>
+            <header className="box-preview-header">
+              <h4>{boxLabel(boxIndex)}</h4>
+              <span>{boxNumber || 'أدخل اسم الصندوق أو رقمه'}</span>
+            </header>
+            <div className="box-motorcycle-sections">
+              {motorcycles.map((motorcycle, motorcycleIndex) => {
+                const fieldError = (field: string) =>
+                  validationErrors[`boxes.${boxIndex}.motorcycles.${motorcycleIndex}.${field}`];
+                const update = (patch: Partial<MotorcycleChecklistDraft>) =>
+                  updateMotorcycle(boxIndex, motorcycleIndex, patch);
+                return <section className="box-motorcycle-section" key={motorcycleIndex}>
+                  <h5>{motorcycleLabel(motorcycleIndex)}</h5>
+                  <div className="box-status-grid">
+                    <div>
+                      <ComponentStatus
+                        label="الموتور"
+                        name={`box-${boxIndex}-motorcycle-${motorcycleIndex}-motor`}
+                        value={motorcycle.motorPresent}
+                        onChange={value => update({ motorPresent: value })}
+                      />
+                      {fieldError('motorPresent') && <span className="box-field-error" role="alert">{fieldError('motorPresent')}</span>}
+                    </div>
+                    <div>
+                      <ComponentStatus
+                        label="الشاسيه"
+                        name={`box-${boxIndex}-motorcycle-${motorcycleIndex}-chassis`}
+                        value={motorcycle.chassisPresent}
+                        onChange={value => update({ chassisPresent: value })}
+                      />
+                      {fieldError('chassisPresent') && <span className="box-field-error" role="alert">{fieldError('chassisPresent')}</span>}
+                    </div>
+                    <div>
+                      <ComponentStatus
+                        label="الكاوتش"
+                        name={`box-${boxIndex}-motorcycle-${motorcycleIndex}-tire`}
+                        value={motorcycle.tirePresent}
+                        onChange={value => update({ tirePresent: value })}
+                      />
+                      {fieldError('tirePresent') && <span className="box-field-error" role="alert">{fieldError('tirePresent')}</span>}
+                    </div>
+                    <div>
+                      <ComponentStatus
+                        label="الشكمان"
+                        name={`box-${boxIndex}-motorcycle-${motorcycleIndex}-exhaust`}
+                        value={motorcycle.exhaustPresent}
+                        onChange={value => update({ exhaustPresent: value })}
+                      />
+                      {fieldError('exhaustPresent') && <span className="box-field-error" role="alert">{fieldError('exhaustPresent')}</span>}
+                    </div>
+                  </div>
+                </section>;
+              })}
             </div>
           </section>;
         })}
@@ -494,7 +642,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                     <th style={{ width: '15%' }}><span className="boxes-th-inner">رقم / اسم الصندوق</span></th>
                     <th style={{ width: '9%' }}><span className="boxes-th-inner">العدد</span></th>
                     <th style={{ width: '13%' }}><span className="boxes-th-inner">حالة الاكتمال</span></th>
-                    <th><span className="boxes-th-inner">فحص مكونات الموتوسيكلات (الموتور • الشاسيه • الكاوتش)</span></th>
+                    <th><span className="boxes-th-inner">فحص مكونات الموتوسيكلات (الموتور • الشاسيه • الكاوتش • الشكمان)</span></th>
                     <th style={{ width: '11%' }}><span className="boxes-th-inner">تاريخ الإضافة</span></th>
                     {(canEdit || canDelete) && <th style={{ width: '13%' }}><span className="boxes-th-inner">الإجراءات</span></th>}
                   </tr>
@@ -527,7 +675,11 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                           ) : (
                             <span className="boxes-status-tag tag-missing">
                               <AlertCircle size={13} strokeWidth={2.5} />
-                              <span>نواقص ({stats.missingParts})</span>
+                              <span>
+                                {stats.missingParts > 0 && `نواقص (${stats.missingParts})`}
+                                {stats.missingParts > 0 && stats.unknownParts > 0 && ' • '}
+                                {stats.unknownParts > 0 && `غير مسجل (${stats.unknownParts})`}
+                              </span>
                             </span>
                           )}
                         </td>
@@ -538,21 +690,10 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                               <div className="boxes-unit-item" key={unit.id || index}>
                                 <span className="boxes-unit-badge">{motorcycleLabel(index)}</span>
                                 <div className="boxes-unit-chips">
-                                  <span className={`boxes-chip ${unit.motorPresent ? 'chip-present' : 'chip-missing'}`}>
-                                    {unit.motorPresent ? <Check size={12} strokeWidth={2.5} /> : <X size={12} strokeWidth={2.5} />}
-                                    <span className="chip-key">الموتور:</span>
-                                    <span className="chip-val">{unit.motorPresent ? 'موجود' : 'غير موجود'}</span>
-                                  </span>
-                                  <span className={`boxes-chip ${unit.chassisPresent ? 'chip-present' : 'chip-missing'}`}>
-                                    {unit.chassisPresent ? <Check size={12} strokeWidth={2.5} /> : <X size={12} strokeWidth={2.5} />}
-                                    <span className="chip-key">الشاسيه:</span>
-                                    <span className="chip-val">{unit.chassisPresent ? 'موجود' : 'غير موجود'}</span>
-                                  </span>
-                                  <span className={`boxes-chip ${unit.tirePresent ? 'chip-present' : 'chip-missing'}`}>
-                                    {unit.tirePresent ? <Check size={12} strokeWidth={2.5} /> : <X size={12} strokeWidth={2.5} />}
-                                    <span className="chip-key">الكاوتش:</span>
-                                    <span className="chip-val">{unit.tirePresent ? 'موجود' : 'غير موجود'}</span>
-                                  </span>
+                                  {componentChip('الموتور', unit.motorPresent)}
+                                  {componentChip('الشاسيه', unit.chassisPresent)}
+                                  {componentChip('الكاوتش', unit.tirePresent)}
+                                  {componentChip('الشكمان', unit.exhaustPresent)}
                                 </div>
                               </div>
                             ))}

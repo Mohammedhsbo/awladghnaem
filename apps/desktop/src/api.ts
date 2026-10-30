@@ -1187,6 +1187,7 @@ export interface MotorcycleBox {
   motorPresent: boolean;
   chassisPresent: boolean;
   tirePresent: boolean;
+  exhaustPresent: boolean | null;
   motorcycleUnits: MotorcycleBoxUnit[];
   createdAt: string;
   updatedAt: string;
@@ -1197,6 +1198,7 @@ export interface MotorcycleBoxUnit {
   motorPresent: boolean;
   chassisPresent: boolean;
   tirePresent: boolean;
+  exhaustPresent: boolean | null;
   motorcycle: {
     id: string;
     vin: string;
@@ -1219,9 +1221,17 @@ export interface MotorcycleBoxChecklistInput {
   motorPresent: boolean;
   chassisPresent: boolean;
   tirePresent: boolean;
+  exhaustPresent: boolean;
 }
 
 export interface CreateMotorcycleBoxInput {
+  boxNumber: string;
+  boxCount: number;
+  motorcycleCount: number;
+  boxes: Array<{ motorcycles: MotorcycleBoxChecklistInput[] }>;
+}
+
+export interface UpdateMotorcycleBoxInput {
   boxNumber: string;
   motorcycleCount: number;
   motorcycles: MotorcycleBoxChecklistInput[];
@@ -1230,8 +1240,8 @@ export interface CreateMotorcycleBoxInput {
 export const motorcycleBoxes = {
   list: () => apiFetch<MotorcycleBox[]>('/boxes'),
   create: (data: CreateMotorcycleBoxInput) =>
-    apiFetch<MotorcycleBox>('/boxes', { method: 'POST', body: JSON.stringify(data) }),
-  update: (id: string, data: CreateMotorcycleBoxInput) =>
+    apiFetch<MotorcycleBox[]>('/boxes', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: UpdateMotorcycleBoxInput) =>
     apiFetch<MotorcycleBox>(`/boxes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   remove: (id: string) => apiFetch<void>(`/boxes/${id}`, { method: 'DELETE' }),
 };
