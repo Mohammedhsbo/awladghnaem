@@ -223,7 +223,7 @@ export function formatReceiptForPrint(data: ReceiptData, lang: 'en' | 'ar'): str
 
 function formatMoney(amount: number, isRtl: boolean): string {
   const formatted = Math.abs(amount).toLocaleString();
-  const currency = isRtl ? 'ريال' : 'EGP';
+  const currency = isRtl ? 'ج.م' : 'EGP';
   const sign = amount < 0 ? '-' : '';
   return `${sign}${formatted} ${currency}`;
 }

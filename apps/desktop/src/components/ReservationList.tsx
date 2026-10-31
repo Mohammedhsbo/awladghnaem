@@ -83,7 +83,7 @@ export default function ReservationList({
                 </span>{' '}
                 <span className="font-bold">
                   {reservation.depositAmount.toLocaleString()}{' '}
-                  {isRtl ? 'ريال' : 'EGP'}
+                  {isRtl ? 'ج.م' : 'EGP'}
                 </span>
               </div>
               <div>
@@ -92,7 +92,7 @@ export default function ReservationList({
                 </span>{' '}
                 <span className="font-bold text-orange-600">
                   {reservation.remainingAmount.toLocaleString()}{' '}
-                  {isRtl ? 'ريال' : 'EGP'}
+                  {isRtl ? 'ج.م' : 'EGP'}
                 </span>
               </div>
             </div>

@@ -71,7 +71,7 @@ const T = {
     noMotorcycles: 'لا توجد دراجات متاحة',
     searching: 'جاري البحث...',
     depositAmount: 'مبلغ العربون',
-    enterDeposit: 'أدخل مبلغ العربون (ريال سعودي)...',
+    enterDeposit: 'أدخل مبلغ العربون (ج.م سعودي)...',
     minimumDeposit: 'الحد الأدنى للعربون',
     maximumDeposit: 'الحد الأقصى للعربون',
     invalidDeposit: 'مبلغ العربون غير صحيح',

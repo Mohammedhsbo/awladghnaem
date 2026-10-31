@@ -84,21 +84,21 @@ export default function ReservationConvert({
             <span>{isRtl ? 'الإجمالي' : 'Total'}:</span>
             <span className="font-bold">
               {reservation.totalPrice.toLocaleString()}{' '}
-              {isRtl ? 'ريال' : 'EGP'}
+              {isRtl ? 'ج.م' : 'EGP'}
             </span>
           </div>
           <div className="flex justify-between text-green-600">
             <span>{isRtl ? 'المدفوع' : 'Paid'}:</span>
             <span className="font-bold">
               {reservation.depositAmount.toLocaleString()}{' '}
-              {isRtl ? 'ريال' : 'EGP'}
+              {isRtl ? 'ج.م' : 'EGP'}
             </span>
           </div>
           <div className="flex justify-between text-orange-600 text-lg font-bold border-t pt-2">
             <span>{isRtl ? 'المتبقي' : 'Remaining'}:</span>
             <span>
               {reservation.remainingAmount.toLocaleString()}{' '}
-              {isRtl ? 'ريال' : 'EGP'}
+              {isRtl ? 'ج.م' : 'EGP'}
             </span>
           </div>
         </div>

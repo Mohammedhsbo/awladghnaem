@@ -43,7 +43,7 @@ export default function DepositInput({
     <div className="space-y-3">
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {isRtl ? 'مبلغ العربون (ريال)' : 'Deposit Amount (EGP)'}
+          {isRtl ? 'مبلغ العربون (ج.م)' : 'Deposit Amount (EGP)'}
         </label>
         <input
           type="number"
@@ -57,7 +57,7 @@ export default function DepositInput({
         />
         <div className="mt-1 text-xs text-gray-500">
           {isRtl
-            ? `الحد الأدنى: ${minDeposit.toLocaleString()} ريال (${minDepositPercent}%)`
+            ? `الحد الأدنى: ${minDeposit.toLocaleString()} ج.م (${minDepositPercent}%)`
             : `Minimum: ${minDeposit.toLocaleString()} EGP (${minDepositPercent}%)`}
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function DepositInput({
             {isRtl ? 'المبلغ المتبقي:' : 'Remaining:'}
           </span>
           <span className="font-bold text-orange-600">
-            {remaining.toLocaleString()} {isRtl ? 'ريال' : 'EGP'}
+            {remaining.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}
           </span>
         </div>
       </div>

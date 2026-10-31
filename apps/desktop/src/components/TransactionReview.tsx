@@ -250,21 +250,21 @@ export default function TransactionReview({
           <div className="flex justify-between">
             <span>{isRtl ? 'المجموع' : 'Total'}:</span>
             <span className="font-bold">
-              {totalAmount.toLocaleString()} {isRtl ? 'ريال' : 'EGP'}
+              {totalAmount.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}
             </span>
           </div>
           {discount > 0 && (
             <div className="flex justify-between text-red-600">
               <span>{isRtl ? 'الخصم' : 'Discount'}:</span>
               <span>
-                -{discount.toLocaleString()} {isRtl ? 'ريال' : 'EGP'}
+                -{discount.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}
               </span>
             </div>
           )}
           <div className="flex justify-between text-xl font-bold">
             <span>{isRtl ? 'الصافي' : 'Net Amount'}:</span>
             <span className="text-blue-600">
-              {netAmount.toLocaleString()} {isRtl ? 'ريال' : 'EGP'}
+              {netAmount.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}
             </span>
           </div>
           {transactionType === 'reservation' && (
@@ -272,13 +272,13 @@ export default function TransactionReview({
               <div className="flex justify-between">
                 <span>{isRtl ? 'المدفوع' : 'Paid'}:</span>
                 <span>
-                  {depositAmount.toLocaleString()} {isRtl ? 'ريال' : 'EGP'}
+                  {depositAmount.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>{isRtl ? 'المتبقي' : 'Remaining'}:</span>
                 <span>
-                  {remainingAmount.toLocaleString()} {isRtl ? 'ريال' : 'EGP'}
+                  {remainingAmount.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}
                 </span>
               </div>
             </>

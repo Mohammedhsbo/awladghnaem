@@ -173,7 +173,7 @@ export default function MotorcycleSearchPOS({
                   {isRtl ? 'نوع الوقود' : 'Fuel type'}: {moto.fuelType === 'PETROL' ? (isRtl ? 'بنزين' : 'Petrol') : moto.fuelType === 'ELECTRIC' ? (isRtl ? 'كهرباء' : 'Electric') : (isRtl ? 'غير معروف' : 'Unknown')}
                 </div>
                 <div className="mt-2 text-lg font-bold text-blue-600">
-                  {moto.price.toLocaleString()} {isRtl ? 'ريال' : 'EGP'}
+                  {moto.price.toLocaleString()} {isRtl ? 'ج.م' : 'EGP'}
                 </div>
                 <div
                   className={`inline-block px-2 py-1 text-xs rounded ${
