@@ -392,7 +392,11 @@ export const customers = {
     apiFetch<CustomerDetail>('/customers', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: string, data: Partial<CustomerInput>) =>
     apiFetch<CustomerDetail>(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-  deactivate: (id: string) => apiFetch<CustomerDetail>(`/customers/${id}/deactivate`, { method: 'POST' }),
+  deactivate: (id: string, reason: string) =>
+    apiFetch<CustomerDetail>(`/customers/${id}/deactivate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
   reactivate: (id: string) => apiFetch<CustomerDetail>(`/customers/${id}/reactivate`, { method: 'POST' }),
 };
 
