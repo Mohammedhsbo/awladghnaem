@@ -4,6 +4,11 @@ interface DesktopPrinter {
   print: (request: { html: string; printerName?: string; silent?: boolean }) => Promise<{ success: boolean; reason: string | null }>;
 }
 
+interface DesktopDocuments {
+  fetchPublic: (url: string) => Promise<{ contentType: string; bytes: ArrayBuffer }>;
+}
+
 interface Window {
   desktopPrinter?: DesktopPrinter;
+  desktopDocuments?: DesktopDocuments;
 }

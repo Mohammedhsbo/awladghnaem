@@ -1,7 +1,7 @@
 import { useState, useRef, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Bike, CheckCircle2, FileImage, Printer, Search } from 'lucide-react';
+import { ArrowLeft, Banknote, Bike, CalendarDays, CheckCircle2, FileImage, Landmark, Printer, Search } from 'lucide-react';
 import { pos, salesRequests, financingCompanies, getUser, type MotorcycleSearchResult, type SalePaymentMethod, type SaleRecord } from '../api';
 import { DataTableState } from '../components/DataTable';
 import { useViewingBranch } from '../contexts/ViewingBranchContext';
@@ -376,36 +376,51 @@ export default function Sales({ lang }: { lang: Lang }) {
 
       {/* ── STEP 1: Choose sale method ────────────────── */}
       {step === 'method' && (
-        <div className="surface-panel sales-step-panel sale-method-panel" style={{ maxWidth: 540, margin: '0 auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="surface-panel sales-step-panel sale-method-panel">
           <h2 style={{ margin: 0 }}>{isRtl ? 'اختر طريقة البيع' : 'Choose a sale method'}</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <p className="sale-method-description">
+            {isRtl ? 'اختر المسار المناسب لإتمام العملية.' : 'Select the option that best fits this transaction.'}
+          </p>
+          <div className="sale-method-grid">
             <button
               type="button"
-              className="primary-action sale-method-option sale-method-cash"
-              style={{ padding: '1.25rem', fontSize: '1.1rem', flexDirection: 'column', gap: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              className="sale-method-option sale-method-cash"
               onClick={() => setStep('list')}
             >
-              <h3>{isRtl ? 'كاش' : 'Cash'}</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'اختيار دراجة متاحة للبيع' : 'Select an available motorcycle'}</p>
+              <span className="sale-method-icon"><Banknote size={25} aria-hidden="true" /></span>
+              <span className="sale-method-copy">
+                <small>{isRtl ? 'بيع مباشر' : 'DIRECT SALE'}</small>
+                <strong>{isRtl ? 'بيع نقدي' : 'Cash sale'}</strong>
+                <span>{isRtl ? 'اختر دراجة متاحة وأكمل البيع.' : 'Choose an available motorcycle and complete the sale.'}</span>
+              </span>
+              <span className="sale-method-arrow" aria-hidden="true"><ArrowLeft size={18} /></span>
             </button>
             <button
               type="button"
-              className="inventory-card clickable sale-method-option sale-method-installment"
-              style={{ textAlign: 'center', borderColor: 'var(--accent-primary)', padding: '2rem' }}
+              className="sale-method-option sale-method-installment"
               onClick={() => navigate('/inquiries', { state: { openNewInquiry: true } })}
             >
-              <h3>{isRtl ? 'تقسيط' : 'Installment'}</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'بدء استعلام تقسيط' : 'Start an installment inquiry'}</p>
+              <span className="sale-method-icon"><Landmark size={25} aria-hidden="true" /></span>
+              <span className="sale-method-copy">
+                <small>{isRtl ? 'تمويل' : 'FINANCING'}</small>
+                <strong>{isRtl ? 'بيع بالتقسيط' : 'Installment sale'}</strong>
+                <span>{isRtl ? 'ابدأ استعلامًا جديدًا لطلب التقسيط.' : 'Start a new inquiry for installment financing.'}</span>
+              </span>
+              <span className="sale-method-arrow" aria-hidden="true"><ArrowLeft size={18} /></span>
             </button>
             {canCreateReservation && (
               <button
                 type="button"
-                className="inventory-card clickable sale-method-option"
-                style={{ gridColumn: '1 / -1', textAlign: 'center', borderColor: 'var(--accent-primary)', padding: '1.5rem' }}
+                className="sale-method-option sale-method-reservation"
                 onClick={() => { setQuery(''); setError(null); setStep('reservation-list'); }}
               >
-                <h3>{isRtl ? 'حجز الدراجة' : 'Reserve a motorcycle'}</h3>
-                <p style={{ margin: 0, fontSize: '0.875rem' }}>{isRtl ? 'اختيار دراجة متاحة وإنشاء حجز دون إتمام عملية بيع' : 'Choose an available motorcycle and reserve it without completing a sale'}</p>
+                <span className="sale-method-icon"><CalendarDays size={25} aria-hidden="true" /></span>
+                <span className="sale-method-copy">
+                  <small>{isRtl ? 'حجز مؤقت' : 'TEMPORARY HOLD'}</small>
+                  <strong>{isRtl ? 'حجز دراجة' : 'Reserve a motorcycle'}</strong>
+                  <span>{isRtl ? 'احجز وحدة متاحة دون إتمام عملية البيع.' : 'Hold an available unit without completing a sale.'}</span>
+                </span>
+                <span className="sale-method-arrow" aria-hidden="true"><ArrowLeft size={18} /></span>
               </button>
             )}
           </div>

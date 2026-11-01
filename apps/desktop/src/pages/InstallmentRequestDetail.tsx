@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, Download, Edit3, ExternalLink, MessageCircle, Save, Trash2, User, Bike, FileImage, Printer } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { buildWhatsAppUrl as createWhatsAppUrl, normalizeWhatsAppPhone } from '../../../../packages/shared-types/src/whatsapp';
-import { customerFinancing, inquiries, type InstallmentRequest } from '../api';
+import { customerFinancing, financingCompanies, type InstallmentRequest } from '../api';
 import { formatDownPaymentReceiptHTML, formatInstallmentRequestHTML } from '../utils/receiptFormatter';
 
 function buildWhatsAppUrl(phone: string, message: string) {
@@ -47,6 +47,11 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
     enabled: Boolean(id),
   });
   const request = query.data;
+  const financingCompaniesQuery = useQuery({
+    queryKey: ['admin-financing-companies'],
+    queryFn: financingCompanies.listAll,
+    enabled: editing,
+  });
   const motorcycleOptionsQuery = useQuery({
     queryKey: ['installment-request-motorcycle-options', id],
     queryFn: () => customerFinancing.motorcycleOptions(id!),
@@ -57,28 +62,6 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
   }, [request?.id, request?.motorcycleId]);
   const selectedMotorcycle = motorcycleOptionsQuery.data?.find(motorcycle => motorcycle.id === selectedMotorcycleId)
     ?? (request?.motorcycle?.id === selectedMotorcycleId ? request.motorcycle : null);
-  const electricityLetterQuery = useQuery({
-    queryKey: ['installment-request-electricity-letter', id, request?.inquiry?.id],
-    queryFn: () => {
-      const inquiryId = request?.inquiry?.id;
-      if (!inquiryId) throw new Error('No inquiry is associated with this installment request.');
-      return inquiries.downloadElectricityLetter(inquiryId);
-    },
-    enabled: Boolean(request?.inquiry?.id && request?.inquiry?.electricityLetterUploaded),
-    retry: false,
-  });
-  const [electricityLetterUrl, setElectricityLetterUrl] = useState<string | null>(null);
-  useEffect(() => {
-    const blob = electricityLetterQuery.data;
-    if (!blob) {
-      setElectricityLetterUrl(null);
-      return;
-    }
-    const objectUrl = URL.createObjectURL(blob);
-    setElectricityLetterUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [electricityLetterQuery.data]);
-
   const edit = useMutation({
     mutationFn: () => customerFinancing.updateRequest(id!, { buyerName: form.buyerName, buyerPhone: form.buyerPhone, financingCompanyId: form.financingCompanyId, downPayment: Number(form.downPayment) }),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['installment-request', id] }); setEditing(false); }
@@ -190,8 +173,6 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
   const startEdit = () => { setForm({ buyerName: request.buyerName, buyerPhone: request.buyerPhone, financingCompanyId: request.financingCompanyId, downPayment: String(request.downPayment) }); setEditing(true); };
   const buyerAddress = request.buyerAddress || request.inquiry?.address || '-';
   const buyerOccupation = request.buyerOccupation || request.inquiry?.occupation || '-';
-  const electricityLetterMissing = !request.inquiry?.id || !request.inquiry.electricityLetterUploaded;
-  const electricityLetterIsImage = electricityLetterQuery.data?.type.startsWith('image/') ?? false;
   const sStyle = statusStyles[request.status] ?? statusStyles.pending;
   const receiptCustomerName = request.customer?.name?.trim() || request.buyerName?.trim() || '';
   const receiptCustomerPhone = request.customer?.phone?.trim() || request.buyerPhone?.trim() || '';
@@ -333,11 +314,11 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
 
       {/* Action Buttons */}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
-        <button className="premium-action-btn solid" style={{ background: '#25D366', borderColor: '#25D366', color: '#fff', direction: isRtl ? 'rtl' : 'ltr' }} onClick={() => whatsapp.mutate()} disabled={whatsapp.isPending}>
-          <MessageCircle size={17} /> {isRtl ? 'إرسال لشركة التمويل عبر واتساب' : 'Send to financing company via WhatsApp'}
+        <button className="premium-action-btn request-whatsapp-btn" style={{ direction: isRtl ? 'rtl' : 'ltr' }} onClick={() => whatsapp.mutate()} disabled={whatsapp.isPending}>
+          <MessageCircle size={17} /> {whatsapp.isPending ? (isRtl ? 'جارٍ تجهيز الرسالة...' : 'Preparing message...') : (isRtl ? 'إرسال لشركة التمويل عبر واتساب' : 'Send to financing company via WhatsApp')}
         </button>
         <button
-          className="premium-action-btn outline"
+          className="premium-action-btn request-documents-btn"
           onClick={() => void downloadRequestDocuments()}
           disabled={documentsDownloading}
           aria-busy={documentsDownloading}
@@ -347,10 +328,10 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
             ? (isRtl ? 'جارٍ تجهيز المستندات...' : 'Preparing documents...')
             : (isRtl ? 'تحميل مستندات الطلب PDF' : 'Download request documents PDF')}
         </button>
-        <button className="premium-action-btn outline" onClick={printRequest}>
+        <button className="premium-action-btn outline request-print-btn" onClick={printRequest}>
           <Printer size={17} /> {isRtl ? 'طباعة الطلب' : 'Print request'}
         </button>
-        <button className="premium-action-btn outline" onClick={printDownPaymentReceipt}>
+        <button className="premium-action-btn outline request-print-btn" onClick={printDownPaymentReceipt}>
           <Printer size={17} /> {isRtl ? 'طباعة إيصال المقدم' : 'Print down-payment receipt'}
         </button>
         {request.status !== 'approved' && (
@@ -398,7 +379,7 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
             <textarea readOnly value={whatsappPreview.message} aria-label={isRtl ? 'نص رسالة واتساب' : 'WhatsApp message text'} onFocus={event => event.currentTarget.select()} style={{ width: '100%', minHeight: 320, boxSizing: 'border-box', direction: 'rtl', textAlign: 'right', fontFamily: 'inherit', lineHeight: 1.6, padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: 10, resize: 'vertical' }} />
             {whatsappNotice && <p role="status" style={{ margin: '0.65rem 0', color: 'var(--text-secondary)' }}>{whatsappNotice}</p>}
             <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', marginTop: '0.8rem' }}>
-              <button className="premium-action-btn solid" type="button" style={{ background: '#25D366', borderColor: '#25D366', color: '#fff' }} onClick={openWhatsApp}><MessageCircle size={16} /> {isRtl ? 'فتح واتساب' : 'Open WhatsApp'}</button>
+              <button className="premium-action-btn request-whatsapp-btn" type="button" onClick={openWhatsApp}><MessageCircle size={16} /> {isRtl ? 'فتح واتساب' : 'Open WhatsApp'}</button>
               <button className="premium-action-btn outline" type="button" onClick={() => void copyWhatsAppMessage()}>{isRtl ? 'نسخ الرسالة' : 'Copy message'}</button>
               <button className="premium-action-btn outline" type="button" onClick={() => setWhatsappPreview(null)}>{isRtl ? 'إغلاق' : 'Close'}</button>
             </div>
@@ -427,7 +408,6 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
               {[
                 { label: isRtl ? 'اسم العميل' : 'Customer name', key: 'buyerName', value: form.buyerName },
                 { label: isRtl ? 'الهاتف' : 'Phone', key: 'buyerPhone', value: form.buyerPhone },
-                { label: isRtl ? 'معرف شركة التمويل' : 'Financing company ID', key: 'financingCompanyId', value: form.financingCompanyId },
                 { label: isRtl ? 'الدفعة المقدمة' : 'Down payment', key: 'downPayment', value: form.downPayment, type: 'number' },
               ].map(field => (
                 <label key={field.key} style={{ display: 'grid', gap: '0.4rem', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
@@ -441,9 +421,45 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
                   />
                 </label>
               ))}
+              <label style={{ display: 'grid', gap: '0.4rem', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                {isRtl ? 'شركة التمويل' : 'Financing company'}
+                <select
+                  className="pos-input"
+                  value={form.financingCompanyId}
+                  onChange={event => setForm({ ...form, financingCompanyId: event.target.value })}
+                  required
+                  disabled={financingCompaniesQuery.isLoading || financingCompaniesQuery.isError}
+                  style={{ minHeight: 42, borderRadius: 10, border: '1px solid #bfdbfe', padding: '0 0.75rem' }}
+                >
+                  <option value="">
+                    {financingCompaniesQuery.isLoading
+                      ? (isRtl ? 'جارٍ تحميل الشركات...' : 'Loading companies...')
+                      : (isRtl ? '-- اختر شركة التمويل --' : '-- Select a financing company --')}
+                  </option>
+                  {financingCompaniesQuery.data?.map(company => (
+                    <option key={company.id} value={company.id}>
+                      {isRtl ? company.nameAr || company.name : company.nameEn || company.name}
+                    </option>
+                  ))}
+                </select>
+                {financingCompaniesQuery.isError && (
+                  <span role="alert" style={{ color: '#b91c1c', fontWeight: 500 }}>
+                    {isRtl ? 'تعذر تحميل شركات التمويل.' : 'Could not load financing companies.'}
+                    {' '}
+                    <button type="button" className="secondary-action" onClick={() => void financingCompaniesQuery.refetch()}>
+                      {isRtl ? 'إعادة المحاولة' : 'Retry'}
+                    </button>
+                  </span>
+                )}
+                {financingCompaniesQuery.isSuccess && financingCompaniesQuery.data.length === 0 && (
+                  <span role="alert" style={{ color: '#b91c1c', fontWeight: 500 }}>
+                    {isRtl ? 'لا توجد شركات تمويل متاحة.' : 'No financing companies are available.'}
+                  </span>
+                )}
+              </label>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <button className="premium-action-btn solid" type="submit" disabled={edit.isPending}>
+              <button className="premium-action-btn solid" type="submit" disabled={edit.isPending || financingCompaniesQuery.isLoading || financingCompaniesQuery.isError || !financingCompaniesQuery.data?.length}>
                 <Save size={16} /> {isRtl ? 'حفظ التعديل' : 'Save changes'}
               </button>
               <button className="premium-action-btn outline" type="button" onClick={() => setEditing(false)}>{isRtl ? 'إلغاء' : 'Cancel'}</button>
@@ -594,32 +610,6 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
             </div>
           ))}
         </div>
-      </div>
-
-      <div className="premium-stat-card" style={{ marginBottom: '1.25rem' }}>
-        <h3><FileImage size={18} /> جواب الكهرباء</h3>
-        {electricityLetterMissing ? (
-          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>لم يتم رفع جواب الكهرباء</p>
-        ) : electricityLetterQuery.isLoading ? (
-          <p style={{ margin: 0, color: 'var(--text-secondary)' }}>جاري تحميل جواب الكهرباء...</p>
-        ) : electricityLetterQuery.isError ? (
-          <p role="alert" style={{ margin: 0, color: 'var(--danger, #b91c1c)' }}>تعذر تحميل جواب الكهرباء</p>
-        ) : electricityLetterUrl && electricityLetterIsImage ? (
-          <a href={electricityLetterUrl} target="_blank" rel="noopener noreferrer" aria-label="فتح جواب الكهرباء بحجم أكبر">
-            <img
-              src={electricityLetterUrl}
-              alt="جواب الكهرباء"
-              style={{ display: 'block', width: '100%', maxWidth: 720, maxHeight: 520, objectFit: 'contain', borderRadius: 10, background: '#f8fafc', border: '1px solid #dbeafe' }}
-            />
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.5rem', color: 'var(--blue-dark)', fontSize: '0.8rem', fontWeight: 600 }}>
-              <ExternalLink size={14} /> فتح الصورة بحجم أكبر
-            </span>
-          </a>
-        ) : electricityLetterUrl ? (
-          <a href={electricityLetterUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            <ExternalLink size={15} /> فتح جواب الكهرباء
-          </a>
-        ) : null}
       </div>
 
       {/* Documents */}

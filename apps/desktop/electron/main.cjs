@@ -39,6 +39,44 @@ ipcMain.handle("printer:print", async (_event, request) => {
   return printHtml(request);
 });
 
+ipcMain.handle("documents:fetch-public", async (_event, rawUrl) => {
+  if (typeof rawUrl !== "string" || rawUrl.length > 4096) {
+    throw new Error("A valid document URL is required");
+  }
+
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error("The document URL is invalid");
+  }
+
+  if (url.protocol !== "https:" || !url.hostname.endsWith(".r2.dev") || url.username || url.password) {
+    throw new Error("Only public Cloudflare R2 document URLs are allowed");
+  }
+
+  const response = await fetch(url, { redirect: "error", signal: AbortSignal.timeout(30000) });
+  if (!response.ok) {
+    throw new Error(`Could not download document (${response.status})`);
+  }
+
+  const maxBytes = 20 * 1024 * 1024;
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error("Document exceeds the 20 MB download limit");
+  }
+
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength > maxBytes) {
+    throw new Error("Document exceeds the 20 MB download limit");
+  }
+
+  return {
+    contentType: response.headers.get("content-type") || "application/octet-stream",
+    bytes,
+  };
+});
+
 function createWindow() {
   const window = new BrowserWindow({
     width: 1280,

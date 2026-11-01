@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Eye, FileImage, MessageCircle, Plus, PenTool, CheckCircle2 } from 'lucide-react';
+import { Eye, FileImage, Plus, PenTool, CheckCircle2 } from 'lucide-react';
 import { inquiries, financingCompanies, installmentDurations, type InquiryInput, type InquiryDocumentType, type InquiryMotorcycleOption, type InquiryRecord, getUser } from '../api';
 import { DataList, DataTableState } from '../components/DataTable';
 import { useViewingBranch } from '../contexts/ViewingBranchContext';
-import { buildInquiryWhatsAppMessage, buildInquiryWhatsAppUrl } from '../utils/inquiryWhatsApp';
 
 type Lang = 'en' | 'ar';
 type InquiryImageField = 'documentImage' | 'idCardFrontImage' | 'idCardBackImage' | 'guarantorIdFrontImage' | 'guarantorIdBackImage' | 'guarantor2IdFrontImage' | 'guarantor2IdBackImage';
@@ -146,11 +145,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   const [error, setError] = useState<string | null>(null);
   const [savedInquiryId, setSavedInquiryId] = useState<string | null>(null);
   const [savedInquiryHasPhysicalMotorcycle, setSavedInquiryHasPhysicalMotorcycle] = useState(false);
-  const [lastSavedInquiry, setLastSavedInquiry] = useState<InquiryRecord | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
-  const [openingWhatsAppInquiryId, setOpeningWhatsAppInquiryId] = useState<string | null>(null);
-  const whatsappOpenLock = useRef(false);
   const [editingInquiryId, setEditingInquiryId] = useState<string | null>(null);
   const [linkMotorcycle, setLinkMotorcycle] = useState(false);
   const inquiriesQuery = useQuery({ queryKey: ['inquiries'], queryFn: inquiries.list });
@@ -167,7 +161,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     onSuccess: (data) => {
       setSavedInquiryId(data.id);
       setSavedInquiryHasPhysicalMotorcycle(Boolean(data.motorcycleId));
-      setLastSavedInquiry(data);
       setShowForm(false);
       void queryClient.invalidateQueries({ queryKey: ['inquiries'] }); 
     },
@@ -177,9 +170,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   function resetForm() {
     setSavedInquiryId(null);
     setSavedInquiryHasPhysicalMotorcycle(false);
-    setLastSavedInquiry(null);
-    setActionError(null);
-    setActionNotice(null);
     setEditingInquiryId(null);
     setLinkMotorcycle(false);
     setSavedImageUrls({});
@@ -209,7 +199,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     setError(null);
     setSavedInquiryId(null);
     setSavedInquiryHasPhysicalMotorcycle(false);
-    setLastSavedInquiry(null);
     setEditingInquiryId(inquiry.id);
     const requestedMotorcycle = inquiry.requestedMotorcycle ?? (inquiry.motorcycle?.brand.id && inquiry.motorcycle.category?.id
       ? {
@@ -266,35 +255,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       installmentDurationId: inquiry.installmentDurationId ?? '',
     });
     setShowForm(true);
-  }
-
-  function openInquiryWhatsApp(inquiry: InquiryRecord) {
-    setActionError(null);
-    setActionNotice(null);
-    if (whatsappOpenLock.current) return;
-    const message = buildInquiryWhatsAppMessage(inquiry);
-    const whatsappUrl = buildInquiryWhatsAppUrl(inquiry.customerPhone, message);
-    if (!whatsappUrl) {
-      setActionError(isRtl
-        ? 'رقم هاتف العميل غير صالح لواتساب. صحح الرقم المحفوظ في الاستعلام ثم أعد المحاولة.'
-        : 'The saved customer phone number is not valid for WhatsApp. Correct the number in the inquiry and try again.');
-      return;
-    }
-    whatsappOpenLock.current = true;
-    setOpeningWhatsAppInquiryId(inquiry.id);
-    const whatsappWindow = window.open(whatsappUrl, '_blank');
-    window.setTimeout(() => {
-      whatsappOpenLock.current = false;
-      setOpeningWhatsAppInquiryId(null);
-    }, 1000);
-    if (!whatsappWindow) {
-      setActionError(isRtl ? 'تعذر فتح واتساب. اسمح بالنوافذ المنبثقة ثم أعد المحاولة.' : 'Could not open WhatsApp. Allow pop-ups and try again.');
-      return;
-    }
-    whatsappWindow.opener = null;
-    setActionNotice(isRtl
-      ? 'تم فتح واتساب برسالة تحتوي على تفاصيل الاستعلام المتاحة. راجعها واضغط إرسال بنفسك؛ لم تُرسل أي رسالة تلقائياً.'
-      : 'WhatsApp opened with the available inquiry details. Review the message and press Send yourself; nothing was sent automatically.');
   }
 
   const hasSupportingDocument = form.documentType !== 'NEITHER';
@@ -424,9 +384,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
           <Plus size={17} /> {isRtl ? 'استعلام جديد' : 'New inquiry'}
         </button>
       </div>
-
-      {actionError && <div className="state-panel" role="alert" style={{ marginBottom: '1rem', color: 'var(--red-light)' }}>{actionError}</div>}
-      {actionNotice && <div className="state-panel" role="status" style={{ marginBottom: '1rem', color: 'var(--green-dark, #047857)' }}>{actionNotice}</div>}
 
       {showForm && (
         <form className="inquiry-create-form" onSubmit={submit}>
@@ -779,28 +736,12 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
               : (isRtl ? 'تم حفظ الاستعلام دون حجز وحدة. سيتم تخصيص وحدة فعلية عند الموافقة على طلب التقسيط.' : 'Inquiry saved without reserving a unit. A physical unit will be allocated when the installment request is approved.')}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
-            {lastSavedInquiry && (
-              <>
-                <button
-                  type="button"
-                  className="secondary-action"
-                  disabled={openingWhatsAppInquiryId === lastSavedInquiry.id}
-                  onClick={() => openInquiryWhatsApp(lastSavedInquiry)}
-                >
-                  <MessageCircle size={16} /> {isRtl ? 'إرسال عبر واتساب' : 'Send via WhatsApp'}
-                </button>
-              </>
-            )}
             <button className="premium-action-btn" style={{ background: 'linear-gradient(135deg, #047857, #059669)', color: 'white', border: 'none', boxShadow: '0 4px 12px rgba(5,150,105,0.25)' }} onClick={async () => { try { await inquiries.sendForReview(savedInquiryId); navigate('/installment-requests'); } catch (err) { setError(err instanceof Error ? err.message : 'Failed to send for review'); } }}>
               <CheckCircle2 size={18} /> {editingInquiryId ? (isRtl ? 'حفظ التعديلات' : 'Save changes') : (isRtl ? 'إرسال للمراجعة' : 'Send for Review')}
             </button>
           </div>
         </div>
       )}
-      <p style={{ marginTop: '-0.75rem', marginBottom: '1.25rem', color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
-        {isRtl ? 'تتضمن رسالة واتساب تفاصيل الاستعلام المتاحة وحالة المستندات فقط، ولا تتم مشاركة الملفات تلقائياً. راجع الرسالة واضغط إرسال بنفسك.' : 'The WhatsApp message includes available inquiry details and document statuses only. Files are not shared automatically; review the message and press Send yourself.'}
-      </p>
-
       {inquiriesQuery.isLoading && <DataTableState kind="loading" lang={lang} />}
       {!inquiriesQuery.isLoading && inquiriesQuery.data?.length === 0 && <DataTableState kind="empty" lang={lang} />}
       
@@ -837,9 +778,6 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
                   </button>
                   <button type="button" className="secondary-action" onClick={() => editInquiry(inquiry)}>
                     <PenTool size={15} /> {isRtl ? 'تعديل' : 'Edit'}
-                  </button>
-                  <button type="button" className="secondary-action" disabled={openingWhatsAppInquiryId === inquiry.id} onClick={() => openInquiryWhatsApp(inquiry)}>
-                    <MessageCircle size={15} /> {isRtl ? 'إرسال عبر واتساب' : 'Send via WhatsApp'}
                   </button>
                   <span style={{ padding: '0.3rem 0.75rem', borderRadius: '99px', fontSize: '0.72rem', fontWeight: 700, background: '#eff6ff', color: 'var(--blue-dark)', border: '1px solid #bfdbfe', whiteSpace: 'nowrap' }}>
                     {docTypeLabels[inquiry.documentType]}

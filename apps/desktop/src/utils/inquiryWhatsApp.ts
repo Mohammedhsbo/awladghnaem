@@ -64,11 +64,16 @@ function attachmentStatus(inquiry: InquiryRecord) {
   return lines;
 }
 
-export function buildInquiryWhatsAppMessage(inquiry: InquiryRecord): string {
+export function buildInquiryWhatsAppMessage(
+  inquiry: InquiryRecord,
+  recipient: 'customer' | 'financingCompany' = 'customer',
+): string {
   const name = present(inquiry.customerName);
-  const greeting = name
-    ? `الأستاذ/ ${name} المحترم،`
-    : 'الأستاذ الكريم،';
+  const greeting = recipient === 'financingCompany'
+    ? `السادة/ ${present(inquiry.financingCompany?.name) ?? 'شركة التمويل'} المحترمين،`
+    : name
+      ? `الأستاذ/ ${name} المحترم،`
+      : 'الأستاذ الكريم،';
   const createdAt = new Date(inquiry.createdAt);
   const createdDate = Number.isNaN(createdAt.getTime())
     ? null
@@ -147,7 +152,9 @@ export function buildInquiryWhatsAppMessage(inquiry: InquiryRecord): string {
     '',
     greeting,
     '',
-    'نرسل لحضرتك تفاصيل طلب الاستعلام والتقسيط الخاص بك:',
+    recipient === 'financingCompany'
+      ? 'نرسل إليكم تفاصيل طلب الاستعلام والتقسيط الخاص بالعميل:'
+      : 'نرسل لحضرتك تفاصيل طلب الاستعلام والتقسيط الخاص بك:',
     '',
     '━━━━━━━━━━━━━━',
     ...section('📋 أولًا: بيانات الاستعلام', [

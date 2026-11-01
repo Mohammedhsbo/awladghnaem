@@ -5,3 +5,7 @@ contextBridge.exposeInMainWorld('desktopPrinter', {
   test: (printerName) => ipcRenderer.invoke('printer:test', { printerName }),
   print: (request) => ipcRenderer.invoke('printer:print', request),
 });
+
+contextBridge.exposeInMainWorld('desktopDocuments', {
+  fetchPublic: (url) => ipcRenderer.invoke('documents:fetch-public', url),
+});
