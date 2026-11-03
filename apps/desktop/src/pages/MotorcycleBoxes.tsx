@@ -125,7 +125,7 @@ function componentChip(label: string, value: boolean | null) {
   </span>;
 }
 
-export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
+export default function MotorcycleBoxes({ user, assembledOnly = false }: { user: DesktopUser; assembledOnly?: boolean }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -429,8 +429,8 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     <div className="page-heading">
       <div>
         <span className="eyebrow">إدارة المخزون</span>
-        <h1>الصناديق</h1>
-        <p>إضافة الصناديق ومراجعة مكونات الموتوسيكلات المحفوظة.</p>
+        <h1>{assembledOnly ? 'الصناديق المجمعة' : 'الصناديق'}</h1>
+        <p>{assembledOnly ? 'مراجعة الصناديق التي تم تجميع كل الموتوسيكلات الموجودة بها.' : 'إضافة الصناديق ومراجعة مكونات الموتوسيكلات المحفوظة.'}</p>
       </div>
       <button className="secondary-action" type="button" onClick={() => list.refetch()} disabled={list.isFetching}>
         <RefreshCw size={16} /> تحديث
@@ -439,7 +439,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
     {error && <div className="inline-error" role="alert">{error}</div>}
     {success && <div className="inline-success" role="status">{success}</div>}
 
-    {(canCreate || (editingBox && canEdit)) && <form className="surface-panel motorcycle-box-form" onSubmit={submit}>
+    {!assembledOnly && (canCreate || (editingBox && canEdit)) && <form className="surface-panel motorcycle-box-form" onSubmit={submit}>
       <h2><Package size={19} /> {editingBox ? 'تعديل الصندوق' : 'إضافة صندوق'}</h2>
       <h3 className="box-form-section-title">معلومات الصندوق</h3>
       <div className="box-information-grid">
@@ -579,10 +579,15 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
       </div>
     </form>}
 
-    {!canCreate && !editingBox && <div className="state-panel">لديك صلاحية عرض الصناديق فقط.</div>}
+    {!assembledOnly && !canCreate && !editingBox && <div className="state-panel">لديك صلاحية عرض الصناديق فقط.</div>}
 
     {(() => {
-      const filteredBoxes = (list.data ?? []).filter(box => {
+      const visibleBoxes = (list.data ?? []).filter(box => {
+        const isAssembled = Boolean(box.motorcycleUnits?.length)
+          && box.motorcycleUnits.every(unit => Boolean(unit.motorcycleId || unit.motorcycle));
+        return assembledOnly ? isAssembled : !isAssembled;
+      });
+      const filteredBoxes = visibleBoxes.filter(box => {
         const matchesSearch = !searchQuery.trim() || box.boxNumber.toLowerCase().includes(searchQuery.trim().toLowerCase());
         if (!matchesSearch) return false;
         const { isComplete } = getBoxStats(box);
@@ -591,8 +596,8 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
         return true;
       });
 
-      const totalBoxes = list.data?.length ?? 0;
-      const completeBoxes = (list.data ?? []).filter(b => getBoxStats(b).isComplete).length;
+      const totalBoxes = visibleBoxes.length;
+      const completeBoxes = visibleBoxes.filter(b => getBoxStats(b).isComplete).length;
       const incompleteBoxes = totalBoxes - completeBoxes;
 
       return (
@@ -603,8 +608,8 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                 <Package size={22} className="boxes-panel-icon" />
               </div>
               <div>
-                <h2>الصناديق المحفوظة</h2>
-                <span className="boxes-panel-subtitle">إجمالي {totalBoxes} صندوق في المخزون</span>
+                <h2>{assembledOnly ? 'الصناديق المجمعة' : 'الصناديق المحفوظة'}</h2>
+                <span className="boxes-panel-subtitle">إجمالي {totalBoxes} صندوق {assembledOnly ? 'مجمّع' : 'في المخزون'}</span>
               </div>
             </div>
 
@@ -630,7 +635,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                 )}
               </div>
 
-              <div className="boxes-filter-pills">
+              {!assembledOnly && <div className="boxes-filter-pills">
                 <button
                   type="button"
                   className={`boxes-filter-pill ${statusFilter === 'all' ? 'active' : ''}`}
@@ -652,7 +657,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                 >
                   به نواقص ({incompleteBoxes})
                 </button>
-              </div>
+              </div>}
             </div>
           </div>
 
@@ -662,7 +667,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
             <button className="secondary-action" onClick={() => list.refetch()}>إعادة المحاولة</button>
           </div>}
           {!list.isLoading && !list.isError && totalBoxes === 0 && (
-            <div className="empty-state">لا توجد صناديق محفوظة حتى الآن.</div>
+            <div className="empty-state">{assembledOnly ? 'لا توجد صناديق اكتمل تجميع كل الموتوسيكلات الموجودة بها.' : 'لا توجد صناديق غير مجمعة حاليًا.'}</div>
           )}
           {!list.isLoading && !list.isError && totalBoxes > 0 && filteredBoxes.length === 0 && (
             <div className="empty-state">لا توجد نتائج مطابقة للبحث أو الفلتر المحدد.</div>
@@ -678,7 +683,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                     <th style={{ width: '13%' }}><span className="boxes-th-inner">حالة الاكتمال</span></th>
                     <th><span className="boxes-th-inner">فحص مكونات الموتوسيكلات (الموتور • الشاسيه • الكاوتش • الشكمان)</span></th>
                     <th style={{ width: '11%' }}><span className="boxes-th-inner">تاريخ الإضافة</span></th>
-                    {(canEdit || canDelete) && <th style={{ width: '13%' }}><span className="boxes-th-inner">الإجراءات</span></th>}
+                    {!assembledOnly && (canEdit || canDelete) && <th style={{ width: '13%' }}><span className="boxes-th-inner">الإجراءات</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -783,7 +788,7 @@ export default function MotorcycleBoxes({ user }: { user: DesktopUser }) {
                           </span>
                         </td>
 
-                        {(canEdit || canDelete) && (
+                        {!assembledOnly && (canEdit || canDelete) && (
                           <td>
                             <div className="boxes-actions-cell">
                               {canEdit && (
