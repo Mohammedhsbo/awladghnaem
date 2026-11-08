@@ -234,13 +234,21 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
   return (
     <section className="desktop-page" dir={isRtl ? 'rtl' : 'ltr'}>
       {/* Page header */}
-      <div className="page-heading">
+      <div
+        className={isEditPage ? 'premium-page-header' : 'page-heading'}
+        style={isEditPage ? { position: 'relative', overflow: 'hidden', marginBottom: '1.75rem' } : undefined}
+      >
         <div>
-          <span className="eyebrow">{t.eyebrow}</span>
-          <h1>{isEditPage ? t.editTitle : t.title}</h1>
-          <p>{t.subtitle}</p>
+          <span style={isEditPage ? { color: '#bfdbfe', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' } : undefined}>
+            {isEditPage ? (isRtl ? 'إعدادات التمويل' : 'Financing settings') : t.eyebrow}
+          </span>
+          <h1 style={isEditPage ? { margin: '0.3rem 0 0.5rem', color: 'white' } : undefined}>
+            {isEditPage ? t.editTitle : t.title}
+          </h1>
+          <p>{isEditPage && form.name ? form.name : t.subtitle}</p>
         </div>
-        <div className="report-controls">
+        {isEditPage && <Building2 size={88} style={{ opacity: 0.1, position: 'absolute', insetInlineEnd: '2.5rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />}
+        <div className="report-controls" style={isEditPage ? { position: 'relative', zIndex: 1 } : undefined}>
           {isEditPage && (
             <button className="secondary-action" onClick={closeForm}>
               <X size={16} /> {t.cancel}
@@ -393,19 +401,45 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
       {/* Add / Edit modal */}
       {showForm && (
         <div
-          className={isEditPage ? undefined : 'modal-backdrop'}
+          className={isEditPage ? 'premium-glass-panel' : 'modal-backdrop'}
           style={isEditPage
-            ? { width: '100%', maxWidth: 760, margin: '0 auto', padding: '1.5rem', border: '1px solid var(--border)', borderRadius: '1rem', background: 'var(--surface, #fff)', boxShadow: '0 12px 32px rgba(15, 41, 79, 0.08)' }
+            ? { width: '100%', maxWidth: 920, margin: '0 auto', padding: 'clamp(1.25rem, 3vw, 2.25rem)', border: '1px solid rgba(191, 219, 254, 0.8)', borderRadius: '1.25rem', background: 'linear-gradient(145deg, rgba(255,255,255,0.98), rgba(247,250,255,0.96))', boxShadow: '0 20px 55px rgba(15, 41, 79, 0.1)' }
             : { display: 'flex', position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, alignItems: 'center', justifyContent: 'center' }}
         >
           <div className={isEditPage ? undefined : 'payment-modal'} style={isEditPage ? undefined : { width: 'min(480px, 95%)', position: 'relative' }}>
             {!isEditPage && <button type="button" className="drawer-close" onClick={closeForm}><X size={18} /></button>}
-            <h2 style={{ marginBottom: '1.5rem' }}>{isEditPage ? t.editTitle : t.addTitle}</h2>
-            <form onSubmit={handleSubmit} className="transfer-form">
-              {formError && <div className="inline-error">{formError}</div>}
-              <label>
+            {isEditPage && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1.5rem', paddingBottom: '1.1rem', borderBottom: '1px solid #e6eef8' }}>
+                <div style={{ display: 'grid', width: 42, height: 42, placeItems: 'center', flexShrink: 0, borderRadius: '0.85rem', color: '#2167a8', background: 'linear-gradient(145deg, #eaf3ff, #dcecff)' }}>
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, color: '#173e6b', fontSize: '1.1rem', fontWeight: 850 }}>
+                    {isRtl ? 'بيانات الشركة وشروط التمويل' : 'Company profile & financing terms'}
+                  </h2>
+                  <p style={{ margin: '0.25rem 0 0', color: '#70839b', fontSize: '0.82rem' }}>
+                    {isRtl ? 'حدّث بيانات الشركة ونسب التمويل.' : 'Update company details and financing rates.'}
+                  </p>
+                </div>
+              </div>
+            )}
+            {!isEditPage && <h2 style={{ marginBottom: '1.5rem' }}>{t.addTitle}</h2>}
+            <form
+              onSubmit={handleSubmit}
+              className="transfer-form"
+              style={isEditPage ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 290px), 1fr))', gap: '1.15rem', maxWidth: 'none' } : undefined}
+            >
+              {formError && <div className="inline-error" style={isEditPage ? { gridColumn: '1 / -1', margin: 0 } : undefined}>{formError}</div>}
+              {isEditPage && (
+                <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.55rem', marginTop: '0.2rem', color: '#46617f', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.04em' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3b82f6' }} />
+                  {isRtl ? 'بيانات التواصل' : 'COMPANY CONTACT'}
+                </div>
+              )}
+              <label style={isEditPage ? { display: 'grid', gap: '0.5rem', color: '#344c68', fontSize: '0.8rem', fontWeight: 750 } : undefined}>
                 <span>{t.name} *</span>
                 <input
+                  style={isEditPage ? { boxSizing: 'border-box', width: '100%', minHeight: 48, padding: '0.7rem 0.85rem', border: '1px solid #d6e3f2', borderRadius: '0.75rem', outline: 0, background: '#fff', color: '#173e6b', font: 'inherit', fontWeight: 650, boxShadow: '0 3px 10px rgba(28, 62, 102, 0.035)' } : undefined}
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder={isRtl ? 'مثال: شركة الأهلي للتمويل' : 'e.g. Al-Ahli Financing Co.'}
@@ -413,18 +447,26 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                   autoFocus
                 />
               </label>
-              <label>
+              <label style={isEditPage ? { display: 'grid', gap: '0.5rem', color: '#344c68', fontSize: '0.8rem', fontWeight: 750 } : undefined}>
                 <span>{t.whatsappNumber} *</span>
                 <input
+                  style={isEditPage ? { boxSizing: 'border-box', width: '100%', minHeight: 48, padding: '0.7rem 0.85rem', border: '1px solid #d6e3f2', borderRadius: '0.75rem', outline: 0, background: '#fff', color: '#173e6b', font: 'inherit', fontWeight: 650, boxShadow: '0 3px 10px rgba(28, 62, 102, 0.035)', direction: 'ltr' } : undefined}
                   value={form.whatsappNumber}
                   onChange={e => setForm(f => ({ ...f, whatsappNumber: e.target.value }))}
                   placeholder={isRtl ? '+966...' : '+966...'}
                   required
                 />
               </label>
-              <label>
+              {isEditPage && (
+                <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.55rem', marginTop: '0.35rem', color: '#46617f', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.04em' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3b82f6' }} />
+                  {isRtl ? 'نسب التمويل والإعفاء' : 'FINANCING & WAIVER RATES'}
+                </div>
+              )}
+              <label style={isEditPage ? { display: 'grid', gap: '0.5rem', color: '#344c68', fontSize: '0.8rem', fontWeight: 750 } : undefined}>
                 <span>{t.annualInterestRate} *</span>
                 <input
+                  style={isEditPage ? { boxSizing: 'border-box', width: '100%', minHeight: 48, padding: '0.7rem 0.85rem', border: '1px solid #d6e3f2', borderRadius: '0.75rem', outline: 0, background: '#fff', color: '#173e6b', font: 'inherit', fontWeight: 750, boxShadow: '0 3px 10px rgba(28, 62, 102, 0.035)' } : undefined}
                   type="number"
                   min={0}
                   max={999.99}
@@ -434,9 +476,10 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                   required
                 />
               </label>
-              <label>
+              <label style={isEditPage ? { display: 'grid', gap: '0.5rem', color: '#344c68', fontSize: '0.8rem', fontWeight: 750 } : undefined}>
                 <span>{t.administrativeFeesPercentage} *</span>
                 <input
+                  style={isEditPage ? { boxSizing: 'border-box', width: '100%', minHeight: 48, padding: '0.7rem 0.85rem', border: '1px solid #d6e3f2', borderRadius: '0.75rem', outline: 0, background: '#fff', color: '#173e6b', font: 'inherit', fontWeight: 750, boxShadow: '0 3px 10px rgba(28, 62, 102, 0.035)' } : undefined}
                   type="number"
                   min={0}
                   max={100}
@@ -446,9 +489,10 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                   required
                 />
               </label>
-              <label>
+              <label style={isEditPage ? { display: 'grid', gap: '0.5rem', color: '#344c68', fontSize: '0.8rem', fontWeight: 750 } : undefined}>
                 <span>{t.waiverAnnualInterestRate} *</span>
                 <input
+                  style={isEditPage ? { boxSizing: 'border-box', width: '100%', minHeight: 48, padding: '0.7rem 0.85rem', border: '1px solid #d6e3f2', borderRadius: '0.75rem', outline: 0, background: '#fff', color: '#173e6b', font: 'inherit', fontWeight: 750, boxShadow: '0 3px 10px rgba(28, 62, 102, 0.035)' } : undefined}
                   type="number"
                   min={0}
                   max={999.99}
@@ -458,24 +502,30 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                   required={form.administrativeFeeWaiverEnabled}
                 />
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+              <label style={isEditPage
+                ? { gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '0.85rem', padding: '0.95rem 1rem', border: `1px solid ${form.administrativeFeeWaiverEnabled ? '#b9d8fa' : '#e1eaf4'}`, borderRadius: '0.85rem', background: form.administrativeFeeWaiverEnabled ? 'linear-gradient(110deg, #edf5ff, #f8fbff)' : '#fff', color: '#344c68', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700 }
+                : { display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
                 <input
+                  style={isEditPage ? { width: 18, height: 18, margin: 0, accentColor: '#2167a8' } : undefined}
                   type="checkbox"
                   checked={form.administrativeFeeWaiverEnabled}
                   onChange={e => setForm(f => ({ ...f, administrativeFeeWaiverEnabled: e.target.checked }))}
                 />
                 <span style={{ fontWeight: 500 }}>{t.administrativeFeeWaiverEnabled}</span>
               </label>
-              <label>
+              <label style={isEditPage ? { display: 'grid', gap: '0.5rem', color: '#344c68', fontSize: '0.8rem', fontWeight: 750 } : undefined}>
                 <span>{t.sortOrder}</span>
                 <input
+                  style={isEditPage ? { boxSizing: 'border-box', width: '100%', minHeight: 48, padding: '0.7rem 0.85rem', border: '1px solid #d6e3f2', borderRadius: '0.75rem', outline: 0, background: '#fff', color: '#173e6b', font: 'inherit', fontWeight: 750, boxShadow: '0 3px 10px rgba(28, 62, 102, 0.035)' } : undefined}
                   type="number"
                   min={0}
                   value={form.sortOrder}
                   onChange={e => setForm(f => ({ ...f, sortOrder: Number(e.target.value) }))}
                 />
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+              <label style={isEditPage
+                ? { display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.55rem 0.7rem', border: '1px solid #e1eaf4', borderRadius: '0.75rem', background: '#fff', color: '#344c68', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }
+                : { display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
                 <button
                   type="button"
                   onClick={() => setForm(f => ({ ...f, isActive: !f.isActive }))}
@@ -485,11 +535,13 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                 </button>
                 <span style={{ fontWeight: 500 }}>{form.isActive ? t.active : t.inactive}</span>
               </label>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button type="button" className="secondary-action" onClick={closeForm} style={{ flex: 1 }}>
+              <div style={isEditPage
+                ? { gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.4rem', paddingTop: '1rem', borderTop: '1px solid #e6eef8' }
+                : { display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button type="button" className="secondary-action" onClick={closeForm} style={isEditPage ? { minWidth: 140 } : { flex: 1 }}>
                   <X size={15} /> {t.cancel}
                 </button>
-                <button type="submit" className="primary-action" disabled={isPending} style={{ flex: 1 }}>
+                <button type="submit" className="primary-action" disabled={isPending} style={isEditPage ? { minWidth: 160 } : { flex: 1 }}>
                   <Save size={15} /> {isPending ? t.saving : t.save}
                 </button>
               </div>
