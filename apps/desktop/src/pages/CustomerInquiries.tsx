@@ -102,6 +102,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     documentType: InquiryDocumentType;
     motorcyclePrice: string;
     downPayment: string;
+    administrativeFeesWaived: boolean;
     requestedMotorcycle: InquiryMotorcycleOption | null;
     financingCompanyId: string;
     installmentDurationId: string;
@@ -124,6 +125,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     documentType: 'EMPLOYEE',
     motorcyclePrice: '',
     downPayment: '',
+    administrativeFeesWaived: false,
     requestedMotorcycle: null,
     financingCompanyId: '',
     installmentDurationId: '',
@@ -173,7 +175,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     setEditingInquiryId(null);
     setLinkMotorcycle(false);
     setSavedImageUrls({});
-    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', occupationAddress: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', motorcyclePrice: '', downPayment: '', requestedMotorcycle: null, financingCompanyId: '', installmentDurationId: '' });
+    setForm({ customerName: '', customerPhone: '', address: '', occupation: '', occupationAddress: '', firstGuarantorName: '', firstGuarantorPhone: '', firstGuarantorAddress: '', firstGuarantorOccupation: '', firstGuarantorOccupationAddress: '', secondGuarantorName: '', secondGuarantorPhone: '', secondGuarantorAddress: '', secondGuarantorOccupation: '', secondGuarantorOccupationAddress: '', documentType: 'EMPLOYEE', motorcyclePrice: '', downPayment: '', administrativeFeesWaived: false, requestedMotorcycle: null, financingCompanyId: '', installmentDurationId: '' });
     setDocumentImage(null);
     setIdCardFrontImage(null);
     setIdCardBackImage(null);
@@ -250,6 +252,7 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
       documentType: inquiry.documentType,
       motorcyclePrice: inquiry.motorcyclePrice == null ? (inquiry.motorcycle?.price == null ? '' : String(inquiry.motorcycle.price)) : String(inquiry.motorcyclePrice),
       downPayment: inquiry.downPayment == null ? '' : String(inquiry.downPayment),
+      administrativeFeesWaived: Boolean(inquiry.administrativeFeesWaived),
       requestedMotorcycle,
       financingCompanyId: inquiry.financingCompanyId ?? '',
       installmentDurationId: inquiry.installmentDurationId ?? '',
@@ -295,6 +298,12 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
     const selectedCompany = financingCompaniesQuery.data?.find(company => company.id === form.financingCompanyId);
     if (!selectedCompany) {
       setError(isRtl ? 'شركة التمويل المحددة غير موجودة.' : 'Selected financing company is not available.');
+      return;
+    }
+    if (form.administrativeFeesWaived &&
+      (!selectedCompany.administrativeFeeWaiverEnabled ||
+        selectedCompany.waiverAnnualInterestRate <= selectedCompany.annualInterestRate)) {
+      setError(isRtl ? 'إعفاء المصاريف الإدارية غير متاح لهذه الشركة.' : 'The administrative fee waiver is not available for this company.');
       return;
     }
     if (form.downPayment.trim()) {
@@ -357,13 +366,21 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   };
   const selectedFinancingCompany = financingCompaniesQuery.data?.find(company => company.id === form.financingCompanyId);
   const selectedDuration = installmentDurationsQuery.data?.find(duration => duration.id === form.installmentDurationId);
+  const waiverAvailable = Boolean(selectedFinancingCompany?.administrativeFeeWaiverEnabled &&
+    selectedFinancingCompany.waiverAnnualInterestRate > selectedFinancingCompany.annualInterestRate);
+  const selectedAnnualInterestRate = form.administrativeFeesWaived
+    ? selectedFinancingCompany?.waiverAnnualInterestRate
+    : selectedFinancingCompany?.annualInterestRate;
+  const selectedAdministrativeFeesPercentage = form.administrativeFeesWaived
+    ? 0
+    : selectedFinancingCompany?.administrativeFeesPercentage;
   const enteredPrice = form.motorcyclePrice.trim() ? Number(form.motorcyclePrice) : null;
   const enteredDownPayment = form.downPayment.trim() ? Number(form.downPayment) : null;
   const financingBreakdown = calculateInquiryBreakdown(
     enteredPrice,
     enteredDownPayment,
-    selectedFinancingCompany?.annualInterestRate,
-    selectedFinancingCompany?.administrativeFeesPercentage,
+    selectedAnnualInterestRate,
+    selectedAdministrativeFeesPercentage,
     selectedDuration?.months,
   );
   const financingPriceMissing = enteredDownPayment != null &&
@@ -371,6 +388,8 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
   const financingInputInvalid = enteredDownPayment != null &&
     (financingPriceMissing || !Number.isFinite(enteredDownPayment) ||
       enteredDownPayment < 0 || (enteredPrice != null && enteredDownPayment > enteredPrice));
+  const formatMoney = (amount: number) => amount.toLocaleString(isRtl ? 'ar-EG' : 'en-EG');
+  const calculatorTextAlign = isRtl ? 'right' as const : 'left' as const;
 
   return (
     <section className="desktop-page" dir={isRtl ? 'rtl' : 'ltr'}>
@@ -434,22 +453,193 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
               <input aria-required={Boolean(form.downPayment.trim())} type="number" min={0.01} step="0.01" value={form.motorcyclePrice} onChange={e => setForm({ ...form, motorcyclePrice: e.target.value })} />
             </label>
             <label>
-              <span>{isRtl ? 'المقدم (ج.م)' : 'Down payment (EGP)'}</span>
-              <input type="number" min={0} step="0.01" value={form.downPayment} onChange={e => setForm({ ...form, downPayment: e.target.value })} />
+              <span style={{ color: '#304967', fontSize: '0.8rem', fontWeight: 750 }}>
+                {isRtl ? 'المقدم' : 'Down payment'}
+              </span>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                minHeight: '3.2rem',
+                overflow: 'hidden',
+                border: '1px solid #d6e3f2',
+                borderRadius: '0.85rem',
+                background: 'linear-gradient(180deg, #fff 0%, #f7faff 100%)',
+                boxShadow: '0 4px 12px rgba(28, 62, 102, 0.045)',
+                transition: 'border-color 160ms ease, box-shadow 160ms ease',
+              }}>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0"
+                  aria-label={isRtl ? 'المقدم بالجنيه المصري' : 'Down payment in EGP'}
+                  value={form.downPayment}
+                  onChange={e => setForm({ ...form, downPayment: e.target.value })}
+                  style={{
+                    width: '100%',
+                    minWidth: 0,
+                    minHeight: '3.2rem',
+                    padding: '0.5rem 0.9rem',
+                    border: 0,
+                    outline: 0,
+                    background: 'transparent',
+                    color: '#173e6b',
+                    font: 'inherit',
+                    fontSize: '1.05rem',
+                    fontWeight: 800,
+                  }}
+                />
+                <span style={{
+                  marginInlineEnd: '0.6rem',
+                  padding: '0.35rem 0.55rem',
+                  borderRadius: '0.55rem',
+                  background: '#eaf2fc',
+                  color: '#58718e',
+                  fontSize: '0.69rem',
+                  fontWeight: 800,
+                  whiteSpace: 'nowrap',
+                }}>
+                  EGP
+                </span>
+              </div>
             </label>
 
             <label>
-              <span>{isRtl ? 'شركة التمويل *' : 'Financing Company *'}</span>
-              <select value={form.financingCompanyId} onChange={e => setForm({ ...form, financingCompanyId: e.target.value })} required>
+              <span style={{ color: '#304967', fontSize: '0.8rem', fontWeight: 750 }}>
+                {isRtl ? 'شركة التمويل *' : 'Financing company *'}
+              </span>
+              <select
+                value={form.financingCompanyId}
+                style={{
+                  width: '100%',
+                  minHeight: '3.2rem',
+                  padding: '0.6rem 2.5rem 0.6rem 0.9rem',
+                  border: '1px solid #d6e3f2',
+                  borderRadius: '0.85rem',
+                  outline: 0,
+                  color: '#173e6b',
+                  background: 'linear-gradient(180deg, #fff 0%, #f7faff 100%)',
+                  boxShadow: '0 4px 12px rgba(28, 62, 102, 0.045)',
+                  font: 'inherit',
+                  fontSize: '0.9rem',
+                  fontWeight: 750,
+                  cursor: 'pointer',
+                }}
+                onChange={e => {
+                  const company = financingCompaniesQuery.data?.find(item => item.id === e.target.value);
+                  const companySupportsWaiver = Boolean(company?.administrativeFeeWaiverEnabled &&
+                    company.waiverAnnualInterestRate > company.annualInterestRate);
+                  setForm({
+                    ...form,
+                    financingCompanyId: e.target.value,
+                    administrativeFeesWaived: companySupportsWaiver ? form.administrativeFeesWaived : false,
+                  });
+                }}
+                required
+              >
                 <option value="">{isRtl ? '-- اختر --' : '-- Select --'}</option>
                 {financingCompaniesQuery.data?.map(company => (
                   <option key={company.id} value={company.id}>{company.name} · {company.annualInterestRate}% · {company.administrativeFeesPercentage ?? 0}%</option>
                 ))}
               </select>
             </label>
+            {selectedFinancingCompany && (
+              <fieldset style={{
+                display: 'grid',
+                gap: '0.55rem',
+                minWidth: 0,
+                margin: 0,
+                padding: '0.65rem',
+                border: '1px solid #dce7f4',
+                borderRadius: '0.95rem',
+                background: 'linear-gradient(145deg, #f8fbff 0%, #fff 100%)',
+                boxShadow: '0 4px 12px rgba(28, 62, 102, 0.04)',
+              }}>
+                <legend style={{
+                  padding: '0 0.35rem',
+                  color: '#304967',
+                  fontSize: '0.78rem',
+                  fontWeight: 750,
+                }}>
+                  {isRtl ? 'المصاريف الإدارية' : 'Administrative fees'}
+                </legend>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  minHeight: '2.7rem',
+                  padding: '0.45rem 0.65rem',
+                  border: `1px solid ${!form.administrativeFeesWaived ? '#83b8ef' : '#e5edf6'}`,
+                  borderRadius: '0.7rem',
+                  background: !form.administrativeFeesWaived ? '#edf5ff' : '#fff',
+                  cursor: 'pointer',
+                  transition: 'all 160ms ease',
+                }}>
+                  <input
+                    type="radio"
+                    name="administrativeFeesOption"
+                    checked={!form.administrativeFeesWaived}
+                    onChange={() => setForm({ ...form, administrativeFeesWaived: false })}
+                    style={{ width: '1rem', height: '1rem', margin: 0, accentColor: '#2167a8', flexShrink: 0 }}
+                  />
+                  <span style={{ color: '#334d6b', fontSize: '0.76rem', fontWeight: 700, lineHeight: 1.45 }}>
+                    {isRtl
+                      ? `دفع المصاريف · ${selectedFinancingCompany.annualInterestRate}% فائدة سنوية`
+                      : `Pay fees · ${selectedFinancingCompany.annualInterestRate}% annual interest`}
+                  </span>
+                </label>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.65rem',
+                  minHeight: '2.7rem',
+                  padding: '0.45rem 0.65rem',
+                  border: `1px solid ${form.administrativeFeesWaived ? '#83b8ef' : '#e5edf6'}`,
+                  borderRadius: '0.7rem',
+                  background: form.administrativeFeesWaived ? '#edf5ff' : '#fff',
+                  opacity: waiverAvailable ? 1 : 0.55,
+                  cursor: waiverAvailable ? 'pointer' : 'not-allowed',
+                  transition: 'all 160ms ease',
+                }}>
+                  <input
+                    type="radio"
+                    name="administrativeFeesOption"
+                    checked={form.administrativeFeesWaived}
+                    disabled={!waiverAvailable}
+                    onChange={() => setForm({ ...form, administrativeFeesWaived: true })}
+                    style={{ width: '1rem', height: '1rem', margin: 0, accentColor: '#2167a8', flexShrink: 0 }}
+                  />
+                  <span style={{ color: '#334d6b', fontSize: '0.76rem', fontWeight: 700, lineHeight: 1.45 }}>
+                    {isRtl
+                      ? `إعفاء المصاريف · ${selectedFinancingCompany.waiverAnnualInterestRate}% فائدة سنوية`
+                      : `Waive fees · ${selectedFinancingCompany.waiverAnnualInterestRate}% annual interest`}
+                  </span>
+                </label>
+              </fieldset>
+            )}
             <label>
-              <span>{isRtl ? 'مدة التقسيط (اختياري)' : 'Installment Duration (Optional)'}</span>
-              <select value={form.installmentDurationId} onChange={e => setForm({ ...form, installmentDurationId: e.target.value })}>
+              <span style={{ color: '#304967', fontSize: '0.8rem', fontWeight: 750 }}>
+                {isRtl ? 'مدة التقسيط (اختياري)' : 'Installment duration (optional)'}
+              </span>
+              <select
+                value={form.installmentDurationId}
+                style={{
+                  width: '100%',
+                  minHeight: '3.2rem',
+                  padding: '0.6rem 2.5rem 0.6rem 0.9rem',
+                  border: '1px solid #d6e3f2',
+                  borderRadius: '0.85rem',
+                  outline: 0,
+                  color: '#173e6b',
+                  background: 'linear-gradient(180deg, #fff 0%, #f7faff 100%)',
+                  boxShadow: '0 4px 12px rgba(28, 62, 102, 0.045)',
+                  font: 'inherit',
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+                onChange={e => setForm({ ...form, installmentDurationId: e.target.value })}
+              >
                 <option value="">{isRtl ? '-- اختر المدة --' : '-- Select duration --'}</option>
                 {installmentDurationsQuery.data?.map(duration => (
                   <option key={duration.id} value={duration.id}>{duration.months} {isRtl ? 'شهر' : 'months'}</option>
@@ -457,29 +647,160 @@ export default function CustomerInquiries({ lang }: { lang: Lang }) {
               </select>
             </label>
           </div>
-          <div role="status" style={{ marginTop: '1rem', padding: '1rem', borderRadius: '0.75rem', background: 'var(--bg-2)', color: 'var(--text-secondary)' }}>
-            {selectedFinancingCompany && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem', marginBottom: '0.6rem' }}>
-              <strong>{isRtl ? 'نسبة الفائدة السنوية:' : 'Annual interest rate:'} {selectedFinancingCompany.annualInterestRate}%</strong>
-              <strong>{isRtl ? 'نسبة المصاريف الإدارية:' : 'Administrative fees rate:'} {selectedFinancingCompany.administrativeFeesPercentage ?? 0}%</strong>
-            </div>}
-            {financingPriceMissing
-              ? (isRtl ? 'أدخل سعرًا صحيحًا للدراجة قبل تسجيل المقدم.' : 'Enter a valid motorcycle price before providing a down payment.')
-              : financingInputInvalid
-              ? (isRtl ? 'تحقق من سعر الدراجة والمقدم؛ لا يمكن أن يتجاوز المقدم سعر الدراجة.' : 'Check the motorcycle price and down payment; the down payment cannot exceed the price.')
-              : financingBreakdown
-                ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem' }}>
-                    <strong>{isRtl ? 'سعر الموتسيكل:' : 'Motorcycle price:'} {enteredPrice!.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'المقدم:' : 'Down payment:'} {enteredDownPayment!.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'المبلغ الممول:' : 'Financed amount:'} {financingBreakdown.financedAmount.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'قيمة الفائدة:' : 'Interest amount:'} {financingBreakdown.totalInterest.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'قيمة المصاريف الإدارية:' : 'Administrative fees amount:'} {financingBreakdown.administrativeFeesAmount.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'إجمالي المبلغ المستحق:' : 'Total amount due:'} {financingBreakdown.totalAmountDue.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
-                    <strong>{isRtl ? 'مدة التقسيط:' : 'Duration:'} {selectedDuration?.months} {isRtl ? 'شهر' : 'months'}</strong>
-                    <strong>{isRtl ? 'قيمة القسط الشهري:' : 'Monthly installment:'} {financingBreakdown.monthlyInstallment.toLocaleString(isRtl ? 'ar-EG' : 'en-EG')} EGP</strong>
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              marginTop: '1.25rem',
+              overflow: 'hidden',
+              borderRadius: '1.15rem',
+              border: '1px solid #dbeafe',
+              background: 'linear-gradient(145deg, #f8fbff 0%, #ffffff 58%, #f1f7ff 100%)',
+              boxShadow: '0 16px 38px rgba(15, 41, 79, 0.1), 0 2px 6px rgba(15, 41, 79, 0.04)',
+              color: '#172b4d',
+              textAlign: calculatorTextAlign,
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              padding: '1.1rem 1.35rem',
+              color: 'white',
+              background: 'linear-gradient(115deg, #102b50 0%, #17457a 58%, #2167a8 100%)',
+            }}>
+              <div>
+                <div style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.12em', opacity: 0.72, textTransform: 'uppercase' }}>
+                  {isRtl ? 'ملخص التمويل' : 'Financing summary'}
+                </div>
+                <div style={{ marginTop: '0.25rem', fontSize: '1.08rem', fontWeight: 800 }}>
+                  {isRtl ? 'تفاصيل العرض' : 'Offer breakdown'}
+                </div>
+              </div>
+              {selectedDuration && (
+                <div style={{
+                  flexShrink: 0,
+                  padding: '0.45rem 0.75rem',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  borderRadius: '999px',
+                  background: 'rgba(255,255,255,0.12)',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                }}>
+                  {selectedDuration.months} {isRtl ? 'شهر' : 'months'}
+                </div>
+              )}
+            </div>
+            {selectedFinancingCompany && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                gap: '0.75rem',
+                padding: '1rem 1.25rem',
+                borderBottom: '1px solid #e6eef8',
+              }}>
+                <div style={{ padding: '0.75rem 0.9rem', borderRadius: '0.8rem', background: '#edf4ff' }}>
+                  <div style={{ color: '#60758f', fontSize: '0.78rem', fontWeight: 700 }}>
+                    {isRtl ? 'نسبة الفائدة السنوية' : 'Annual interest rate'}
                   </div>
-                : (isRtl
-                    ? selectedFinancingCompany ? 'أدخل سعر الموتسيكل والمقدم واختر مدة التقسيط لعرض الحساب.' : 'اختر شركة التمويل لعرض نسب الفائدة والمصاريف الإدارية.'
-                    : selectedFinancingCompany ? 'Enter the motorcycle price and down payment, then select a duration to see the calculation.' : 'Select a financing company to display its interest and administrative fee rates.')}
+                  <div style={{ marginTop: '0.2rem', color: '#17457a', fontSize: '1.2rem', fontWeight: 850 }}>
+                    {selectedAnnualInterestRate}%
+                  </div>
+                </div>
+                <div style={{ padding: '0.75rem 0.9rem', borderRadius: '0.8rem', background: '#f1f6f4' }}>
+                  <div style={{ color: '#60758f', fontSize: '0.78rem', fontWeight: 700 }}>
+                    {isRtl ? 'نسبة المصاريف الإدارية' : 'Administrative fee rate'}
+                  </div>
+                  <div style={{ marginTop: '0.2rem', color: '#16745a', fontSize: '1.2rem', fontWeight: 850 }}>
+                    {selectedAdministrativeFeesPercentage ?? 0}%
+                  </div>
+                </div>
+              </div>
+            )}
+            {financingPriceMissing
+              ? <div style={{ padding: '1rem 1.25rem', color: '#9a5410', fontWeight: 650 }}>
+                  {isRtl ? 'أدخل سعرًا صحيحًا للدراجة قبل تسجيل المقدم.' : 'Enter a valid motorcycle price before providing a down payment.'}
+                </div>
+              : financingInputInvalid
+              ? <div style={{ padding: '1rem 1.25rem', color: '#b42318', fontWeight: 650 }}>
+                  {isRtl ? 'تحقق من سعر الدراجة والمقدم؛ لا يمكن أن يتجاوز المقدم سعر الدراجة.' : 'Check the motorcycle price and down payment; the down payment cannot exceed the price.'}
+                </div>
+              : financingBreakdown
+                ? <>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                      gap: '0.65rem',
+                      padding: '1.1rem 1.25rem',
+                    }}>
+                      {[
+                        [isRtl ? 'سعر الموتسيكل' : 'Motorcycle price', enteredPrice!],
+                        [isRtl ? 'المقدم' : 'Down payment', enteredDownPayment!],
+                        [isRtl ? 'المبلغ الممول' : 'Financed amount', financingBreakdown.financedAmount],
+                        [isRtl ? 'قيمة الفائدة' : 'Interest amount', financingBreakdown.totalInterest],
+                        [isRtl ? 'قيمة المصاريف الإدارية' : 'Administrative fees amount', financingBreakdown.administrativeFeesAmount],
+                        [isRtl ? 'القسط الشهري' : 'Monthly installment', financingBreakdown.monthlyInstallment],
+                      ].map(([label, amount]) => (
+                        <div key={label} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.75rem',
+                          minHeight: '3.2rem',
+                          padding: '0.7rem 0.85rem',
+                          border: '1px solid #e7eef7',
+                          borderRadius: '0.8rem',
+                          background: 'rgba(255,255,255,0.88)',
+                        }}>
+                          <span style={{ color: '#657991', fontSize: '0.82rem', fontWeight: 650 }}>{label}</span>
+                          <strong style={{ color: '#203c60', fontSize: '0.94rem', whiteSpace: 'nowrap' }}>
+                            {formatMoney(Number(amount))} <small style={{ color: '#8092a8', fontSize: '0.7rem' }}>EGP</small>
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '1rem',
+                      margin: '0 1.25rem 1.25rem',
+                      padding: '1rem 1.1rem',
+                      border: '1px solid #b9d8fa',
+                      borderRadius: '0.9rem',
+                      background: 'linear-gradient(110deg, #eaf3ff 0%, #f7fbff 100%)',
+                    }}>
+                      <div>
+                        <div style={{ color: '#416487', fontSize: '0.78rem', fontWeight: 750 }}>
+                          {isRtl ? 'إجمالي المبلغ المستحق' : 'Total amount due'}
+                        </div>
+                        <div style={{ marginTop: '0.2rem', color: '#173e6b', fontSize: '1.45rem', fontWeight: 900, letterSpacing: '-0.02em' }}>
+                          {formatMoney(financingBreakdown.totalAmountDue)}
+                          <span style={{ marginInlineStart: '0.35rem', color: '#55799f', fontSize: '0.78rem', fontWeight: 750 }}>EGP</span>
+                        </div>
+                      </div>
+                      <div aria-hidden="true" style={{
+                        display: 'grid',
+                        width: '2.6rem',
+                        height: '2.6rem',
+                        flexShrink: 0,
+                        placeItems: 'center',
+                        borderRadius: '50%',
+                        background: '#d5e8ff',
+                        color: '#2167a8',
+                        fontSize: '1.2rem',
+                        fontWeight: 900,
+                      }}>
+                        ✓
+                      </div>
+                    </div>
+                  </>
+                : <div style={{ padding: '1rem 1.25rem', color: '#6a7f98', fontSize: '0.88rem' }}>
+                    {isRtl
+                      ? selectedFinancingCompany ? 'أدخل سعر الموتسيكل والمقدم واختر مدة التقسيط لعرض الحساب.' : 'اختر شركة التمويل لعرض نسب الفائدة والمصاريف الإدارية.'
+                      : selectedFinancingCompany ? 'Enter the motorcycle price and down payment, then select a duration to see the calculation.' : 'Select a financing company to display its interest and administrative fee rates.'}
+                  </div>}
           </div>
           </div>
 

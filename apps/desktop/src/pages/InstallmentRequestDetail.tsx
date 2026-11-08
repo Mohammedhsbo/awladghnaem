@@ -549,6 +549,8 @@ export default function InstallmentRequestDetail({ lang }: { lang: 'en' | 'ar' }
               [isRtl ? 'شركة التمويل' : 'Financing company', request.financingCompany?.name || '-'],
               [isRtl ? 'الدفعة المقدمة' : 'Down payment', request.downPayment != null ? `${request.downPayment.toLocaleString()} EGP` : '-'],
               [isRtl ? 'القسط الشهري' : 'Monthly installment', request.motorcycle && request.monthlyInstallment != null ? `${request.monthlyInstallment.toLocaleString()} EGP` : '-'],
+              [isRtl ? 'الفائدة السنوية' : 'Annual interest rate', `${request.annualInterestRate}%`],
+              [isRtl ? 'المصاريف الإدارية' : 'Administrative fees', request.administrativeFeesWaived ? (isRtl ? 'معفاة' : 'Waived') : `${request.administrativeFeesAmount.toLocaleString()} EGP`],
               [isRtl ? 'مدة التقسيط' : 'Duration', request.duration?.months ? `${request.duration.months} ${isRtl ? 'شهر' : 'months'}` : '-'],
             ].map(([label, val]) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem', padding: '0.55rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>

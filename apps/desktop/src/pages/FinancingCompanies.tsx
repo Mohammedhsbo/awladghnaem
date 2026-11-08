@@ -15,7 +15,9 @@ const T = {
     name: 'Company name',
     whatsappNumber: 'WhatsApp number',
     annualInterestRate: 'Annual interest rate (%)',
+    waiverAnnualInterestRate: 'Waiver annual interest rate (%)',
     administrativeFeesPercentage: 'Administrative Fees (%)',
+    administrativeFeeWaiverEnabled: 'Enable administrative fee waiver',
     sortOrder: 'Sort order',
     active: 'Active',
     inactive: 'Inactive',
@@ -36,6 +38,7 @@ const T = {
     invalidWhatsApp: 'WhatsApp number must be a valid phone number',
     invalidAnnualInterestRate: 'Annual interest rate must be between 0 and 999.99',
     invalidAdministrativeFeesPercentage: 'Administrative fees must be between 0 and 100%',
+    invalidWaiverRate: 'Waiver interest rate must be higher than the standard rate',
   },
   ar: {
     title: 'شركات التمويل',
@@ -46,7 +49,9 @@ const T = {
     name: 'اسم الشركة',
     whatsappNumber: 'رقم واتساب',
     annualInterestRate: 'نسبة الفائدة السنوية (%)',
+    waiverAnnualInterestRate: 'الفائدة السنوية عند الإعفاء (%)',
     administrativeFeesPercentage: 'المصاريف الإدارية (%)',
+    administrativeFeeWaiverEnabled: 'تفعيل الإعفاء من المصاريف الإدارية',
     sortOrder: 'الترتيب',
     active: 'نشطة',
     inactive: 'غير نشطة',
@@ -67,6 +72,7 @@ const T = {
     invalidWhatsApp: 'رقم واتساب غير صحيح',
     invalidAnnualInterestRate: 'نسبة الفائدة السنوية يجب أن تكون بين 0 و999.99',
     invalidAdministrativeFeesPercentage: 'يجب أن تكون المصاريف الإدارية بين 0 و100%',
+    invalidWaiverRate: 'يجب أن تكون فائدة الإعفاء أعلى من الفائدة الأساسية',
   },
 };
 
@@ -75,11 +81,13 @@ interface FormState {
   whatsappNumber: string;
   annualInterestRate: string;
   administrativeFeesPercentage: string;
+  waiverAnnualInterestRate: string;
+  administrativeFeeWaiverEnabled: boolean;
   isActive: boolean;
   sortOrder: number;
 }
 
-const emptyForm: FormState = { name: '', whatsappNumber: '', annualInterestRate: '0', administrativeFeesPercentage: '0', isActive: true, sortOrder: 0 };
+const emptyForm: FormState = { name: '', whatsappNumber: '', annualInterestRate: '0', administrativeFeesPercentage: '0', waiverAnnualInterestRate: '0', administrativeFeeWaiverEnabled: false, isActive: true, sortOrder: 0 };
 const whatsappPattern = /^\+?[0-9\s-]{8,20}$/;
 
 
@@ -138,6 +146,8 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
       whatsappNumber: company.whatsappNumber ?? '',
       annualInterestRate: String(company.annualInterestRate),
       administrativeFeesPercentage: String(company.administrativeFeesPercentage ?? 0),
+      waiverAnnualInterestRate: String(company.waiverAnnualInterestRate ?? 0),
+      administrativeFeeWaiverEnabled: company.administrativeFeeWaiverEnabled ?? false,
       isActive: company.isActive,
       sortOrder: company.sortOrder,
     });
@@ -166,11 +176,19 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
       setFormError(t.invalidAdministrativeFeesPercentage);
       return;
     }
+    const waiverAnnualInterestRate = Number(form.waiverAnnualInterestRate);
+    if (!Number.isFinite(waiverAnnualInterestRate) || waiverAnnualInterestRate < 0 || waiverAnnualInterestRate > 999.99 ||
+      (form.administrativeFeeWaiverEnabled && waiverAnnualInterestRate <= annualInterestRate)) {
+      setFormError(t.invalidWaiverRate);
+      return;
+    }
     const payload: FinancingCompanyInput = {
       name: form.name.trim(),
       whatsappNumber: form.whatsappNumber.trim(),
       annualInterestRate,
       administrativeFeesPercentage,
+      waiverAnnualInterestRate,
+      administrativeFeeWaiverEnabled: form.administrativeFeeWaiverEnabled,
       isActive: form.isActive,
       sortOrder: form.sortOrder,
     };
@@ -240,6 +258,7 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                 <th style={{ padding: '0.75rem 1rem', textAlign: isRtl ? 'right' : 'left', fontWeight: 600 }}>{t.whatsappNumber}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{t.annualInterestRate}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{t.administrativeFeesPercentage}</th>
+                <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{t.waiverAnnualInterestRate}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{isRtl ? 'الحالة' : 'Status'}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{t.sortOrder}</th>
                 <th style={{ padding: '0.75rem 1rem', textAlign: isRtl ? 'right' : 'left', fontWeight: 600 }}>{t.createdAt}</th>
@@ -277,6 +296,11 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                   </td>
                   <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
                     {(c.administrativeFeesPercentage ?? 0).toLocaleString(isRtl ? 'ar-EG' : 'en-GB')}%
+                  </td>
+                  <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                    {c.administrativeFeeWaiverEnabled
+                      ? `${c.waiverAnnualInterestRate.toLocaleString(isRtl ? 'ar-EG' : 'en-GB')}%`
+                      : '—'}
                   </td>
                   <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
                     <span className={`status-pill ${c.isActive ? 'status-available' : 'status-sold'}`}>
@@ -370,6 +394,26 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
                   onChange={e => setForm(f => ({ ...f, administrativeFeesPercentage: e.target.value }))}
                   required
                 />
+              </label>
+              <label>
+                <span>{t.waiverAnnualInterestRate} *</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={999.99}
+                  step="0.01"
+                  value={form.waiverAnnualInterestRate}
+                  onChange={e => setForm(f => ({ ...f, waiverAnnualInterestRate: e.target.value }))}
+                  required={form.administrativeFeeWaiverEnabled}
+                />
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.administrativeFeeWaiverEnabled}
+                  onChange={e => setForm(f => ({ ...f, administrativeFeeWaiverEnabled: e.target.checked }))}
+                />
+                <span style={{ fontWeight: 500 }}>{t.administrativeFeeWaiverEnabled}</span>
               </label>
               <label>
                 <span>{t.sortOrder}</span>

@@ -852,6 +852,9 @@ export interface Invoice {
   orderId?: string;
   status: string;
   totalAmount: number;
+  annualInterestRate?: number | null;
+  administrativeFeesAmount: number;
+  administrativeFeesWaived: boolean;
   paidAmount: number;
   remainingAmount: number;
   createdAt: string;
@@ -1099,6 +1102,8 @@ export interface FinancingContractRecord {
   numberOfInstallments: number;
   installmentFrequency: InstallmentFrequency;
   interestRate: number;
+  administrativeFeesAmount: number;
+  administrativeFeesWaived: boolean;
   startDate: string;
   status: FinancingStatus;
   customer?: { id: string; name: string; phone: string };
@@ -1117,6 +1122,11 @@ export interface InstallmentRecord {
   status: InstallmentStatus;
   paidAt?: string | null;
   contract?: FinancingContractRecord;
+  financingTerms?: {
+    annualInterestRate: number;
+    administrativeFeesAmount: number;
+    administrativeFeesWaived: boolean;
+  };
   customer?: { id: string; name: string; phone: string };
   invoice?: { id: string; invoiceNumber: string };
 }
@@ -1294,6 +1304,8 @@ export interface FinancingCompanyRecord {
   whatsappNumber: string;
   annualInterestRate: number;
   administrativeFeesPercentage: number;
+  waiverAnnualInterestRate: number;
+  administrativeFeeWaiverEnabled: boolean;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;
@@ -1305,6 +1317,8 @@ export interface FinancingCompanyInput {
   whatsappNumber: string;
   annualInterestRate: number;
   administrativeFeesPercentage: number;
+  waiverAnnualInterestRate: number;
+  administrativeFeeWaiverEnabled: boolean;
   isActive?: boolean;
   sortOrder?: number;
 }
@@ -1377,6 +1391,7 @@ export interface InquiryRecord {
   motorcyclePrice?: number | null;
   annualInterestRate?: number | null;
   administrativeFeesPercentage?: number | null;
+  administrativeFeesWaived: boolean;
   financedAmount?: number | null;
   totalInterest?: number | null;
   administrativeFeesAmount?: number | null;
@@ -1401,6 +1416,8 @@ export interface InquiryRecord {
     name: string;
     annualInterestRate: number;
     administrativeFeesPercentage: number;
+    waiverAnnualInterestRate: number;
+    administrativeFeeWaiverEnabled: boolean;
   } | null;
   installmentDuration?: { months: number } | null;
   requestedMotorcycle?: InquiryMotorcycleOption | null;
@@ -1428,6 +1445,7 @@ export interface InquiryInput {
   secondGuarantorOccupationAddress?: string;
   downPayment?: number;
   motorcyclePrice?: number | null;
+  administrativeFeesWaived: boolean;
   motorcycleId?: string;
   requestedMotorcycle?: InquiryMotorcycleSelection | null;
   documentImage?: File;
@@ -1476,6 +1494,7 @@ function inquiryFormData(input: InquiryInput) {
     if (value !== undefined) form.set(field, value);
   }
   if (input.downPayment !== undefined) form.set('downPayment', String(input.downPayment));
+  form.set('administrativeFeesWaived', String(input.administrativeFeesWaived));
   if (input.motorcyclePrice !== undefined) form.set('motorcyclePrice', input.motorcyclePrice == null ? '' : String(input.motorcyclePrice));
   if (input.motorcycleId) form.set('motorcycleId', input.motorcycleId);
   if (input.requestedMotorcycle !== undefined) form.set('requestedMotorcycle', JSON.stringify(input.requestedMotorcycle));
@@ -1892,6 +1911,9 @@ export interface InstallmentRequest {
   motorcyclePrice: number;
   downPayment: number;
   annualInterestRate: number;
+  administrativeFeesPercentage: number;
+  administrativeFeesAmount: number;
+  administrativeFeesWaived: boolean;
   durationMonthsSnapshot: number;
   financedAmount: number;
   totalInterest: number;
