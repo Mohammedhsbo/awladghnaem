@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Building2, Plus, Pencil, Trash2, RefreshCw, X, Save, ToggleLeft, ToggleRight } from 'lucide-react';
 import { financingCompanies, type FinancingCompanyRecord, type FinancingCompanyInput } from '../api';
 
@@ -95,6 +96,9 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
   const t = T[lang];
   const isRtl = lang === 'ar';
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { companyId } = useParams<{ companyId: string }>();
+  const isEditPage = Boolean(companyId);
 
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<FinancingCompanyRecord | null>(null);
@@ -108,6 +112,28 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
   });
 
   const companies = data ?? [];
+
+  useEffect(() => {
+    if (!companyId || !data) return;
+    if (editTarget?.id === companyId) return;
+    const company = data.find(item => item.id === companyId);
+    if (company) {
+      setEditTarget(company);
+      setForm({
+        name: company.name,
+        whatsappNumber: company.whatsappNumber ?? '',
+        annualInterestRate: String(company.annualInterestRate),
+        administrativeFeesPercentage: String(company.administrativeFeesPercentage ?? 0),
+        waiverAnnualInterestRate: String(company.waiverAnnualInterestRate ?? 0),
+        administrativeFeeWaiverEnabled: company.administrativeFeeWaiverEnabled ?? false,
+        isActive: company.isActive,
+        sortOrder: company.sortOrder,
+      });
+      setShowForm(true);
+    } else if (!isLoading) {
+      navigate('/financing-companies', { replace: true });
+    }
+  }, [companyId, data, editTarget?.id, isLoading, navigate]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['desktop-financing-companies'] });
@@ -153,12 +179,14 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
     });
     setFormError('');
     setShowForm(true);
+    navigate(`/financing-companies/${company.id}/edit`);
   };
 
   const closeForm = () => {
     setShowForm(false);
     setEditTarget(null);
     setFormError('');
+    if (companyId) navigate('/financing-companies');
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -209,26 +237,36 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
       <div className="page-heading">
         <div>
           <span className="eyebrow">{t.eyebrow}</span>
-          <h1>{t.title}</h1>
+          <h1>{isEditPage ? t.editTitle : t.title}</h1>
           <p>{t.subtitle}</p>
         </div>
         <div className="report-controls">
+          {isEditPage && (
+            <button className="secondary-action" onClick={closeForm}>
+              <X size={16} /> {t.cancel}
+            </button>
+          )}
+          {!isEditPage && <>
           <button className="secondary-action" onClick={() => refetch()}>
             <RefreshCw size={16} /> {t.refresh}
           </button>
           <button className="primary-action" onClick={openAdd}>
             <Plus size={16} /> {t.add}
           </button>
+          </>}
         </div>
       </div>
 
       {/* States */}
-      {isLoading && (
+      {isLoading && !isEditPage && (
         <div className="inventory-grid">
           {[1, 2, 3].map(n => <div className="metric-card skeleton" key={n} style={{ height: 90 }} />)}
         </div>
       )}
-      {isError && (
+      {isEditPage && isLoading && (
+        <div className="state-panel">{isRtl ? 'جاري تحميل بيانات الشركة...' : 'Loading company details...'}</div>
+      )}
+      {isError && !isEditPage && (
         <div className="state-panel">
           <p>{isRtl ? 'تعذر تحميل البيانات.' : 'Could not load data.'}</p>
           <button className="secondary-action" onClick={() => refetch()}>
@@ -236,7 +274,15 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
           </button>
         </div>
       )}
-      {!isLoading && !isError && companies.length === 0 && (
+      {isError && isEditPage && (
+        <div className="state-panel">
+          <p>{isRtl ? 'تعذر تحميل بيانات الشركة.' : 'Could not load company details.'}</p>
+          <button className="secondary-action" onClick={() => refetch()}>
+            <RefreshCw size={16} /> {isRtl ? 'إعادة المحاولة' : 'Retry'}
+          </button>
+        </div>
+      )}
+      {!isEditPage && !isLoading && !isError && companies.length === 0 && (
         <div className="state-panel">
           <Building2 size={40} style={{ opacity: 0.3, marginBottom: '0.75rem' }} />
           <p>{t.noData}</p>
@@ -245,7 +291,7 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
       )}
 
       {/* Companies table */}
-      {!isLoading && !isError && companies.length > 0 && (
+      {!isEditPage && !isLoading && !isError && companies.length > 0 && (
         <div className="surface-panel" style={{ overflow: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
@@ -346,10 +392,15 @@ export default function FinancingCompanies({ lang }: { lang: Lang }) {
 
       {/* Add / Edit modal */}
       {showForm && (
-        <div className="modal-backdrop" style={{ display: 'flex', position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, alignItems: 'center', justifyContent: 'center' }}>
-          <div className="payment-modal" style={{ width: 'min(480px, 95%)', position: 'relative' }}>
-            <button type="button" className="drawer-close" onClick={closeForm}><X size={18} /></button>
-            <h2 style={{ marginBottom: '1.5rem' }}>{editTarget ? t.editTitle : t.addTitle}</h2>
+        <div
+          className={isEditPage ? undefined : 'modal-backdrop'}
+          style={isEditPage
+            ? { width: '100%', maxWidth: 760, margin: '0 auto', padding: '1.5rem', border: '1px solid var(--border)', borderRadius: '1rem', background: 'var(--surface, #fff)', boxShadow: '0 12px 32px rgba(15, 41, 79, 0.08)' }
+            : { display: 'flex', position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div className={isEditPage ? undefined : 'payment-modal'} style={isEditPage ? undefined : { width: 'min(480px, 95%)', position: 'relative' }}>
+            {!isEditPage && <button type="button" className="drawer-close" onClick={closeForm}><X size={18} /></button>}
+            <h2 style={{ marginBottom: '1.5rem' }}>{isEditPage ? t.editTitle : t.addTitle}</h2>
             <form onSubmit={handleSubmit} className="transfer-form">
               {formError && <div className="inline-error">{formError}</div>}
               <label>

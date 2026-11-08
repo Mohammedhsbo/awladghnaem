@@ -323,6 +323,7 @@ function DesktopShell({ lang, setLang, user, onLogout }: { lang: Lang; setLang: 
         <Route path="/installment-durations" element={<InstallmentDurations lang={lang} />} />
         <Route path="/reports" element={isSuperAdmin ? <Reports lang={lang} branchId={viewingBranchId ?? undefined} /> : restrictedPages.reports} />
         <Route path="/suppliers" element={restrictedPages.suppliers} />
+        <Route path="/financing-companies/:companyId/edit" element={<FinancingCompanies lang={lang} />} />
         <Route path="/financing-companies" element={<FinancingCompanies lang={lang} />} />
         {isSuperAdmin && <Route path="/branches" element={<Branches lang={lang} />} />}
         {isSuperAdmin && <Route path="/accounts" element={<AccountManagement lang={lang} />} />}
